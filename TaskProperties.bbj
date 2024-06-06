@@ -1,0 +1,186 @@
+REM /**
+REM  * WinTask.bbj
+REM  * @author gosteen
+REM  *C:\Users\gosteen\eclipse\workspaces\bbj-workspace\TaskApp\WinTask.bbj
+REM  */
+REM package TaskApp
+
+declare auto Task task!
+declare auto TaskProperties taskProperties!
+task! = new Task()
+task!.setTitle("SAMPLE 1")
+taskProperties! = new TaskProperties()
+taskProperties!.loadTask(task!)
+process_events
+end
+
+REM /**
+REM  * Object that contains and controls the properties window that opens up when editing a Task.
+REM  */
+class public TaskProperties
+    field protected BBjTopLevelWindow winTaskProperties!
+    field protected BBjEditBox        editTitle!
+    field protected BBjCEdit          editDescription!
+    field protected BBjListButton     listPriority!
+    field protected BBjInputD         dateDue!
+    field protected Task              task!
+    
+    REM Constructor
+    REM ========================================
+    method public TaskProperties()
+        #task! = null()
+        declare auto BBjSysGui sysgui!
+        sysgui! = BBjAPI().openSysGui("X0")
+
+        REM Create task properties window
+        sysgui! = BBjAPI().getSysGui()
+        #winTaskProperties! = sysgui!.addWindow(sysgui!.getAvailableContext(), "winTask", $011F0000$)
+        #winTaskProperties!.addClass("winTaskProperties")
+        #winTaskProperties!.addOuterClass("winTaskPropertiesContainer")
+
+        #editTitle! = #winTaskProperties!.addEditBox("")
+        #editTitle!.setAttribute("label", "Title")
+        #editTitle!.setPlaceholder("Task Title")
+
+        #editDescription! = #winTaskProperties!.addCEdit("", $0002$)
+        #editDescription!.setAttribute("label", "Description")
+        #editDescription!.setPlaceholder("Task Description")
+
+        #listPriority! = #winTaskProperties!.addListButton("")
+        #listPriority!.setAttribute("label", "Priority")
+        for i = Task.PRIORITY_HIGH() to Task.PRIORITY_LOW()
+            if (i = 6) then
+                #listPriority!.addItem("No Priority")
+            else
+                #listPriority!.addItem("Priority " + str(i))
+            endif
+        next i
+
+        #dateDue! = #winTaskProperties!.addInputD()
+        #dateDue!.setAttribute("label", "Due Date")
+        #dateDue!.setText("")
+        #dateDue!.setAttribute("visible-calendar-icon","true")
+        #dateDue!.setAttribute("show-weeks","true")
+
+        buttonDelete! = #winTaskProperties!.addButton("Delete")
+        buttonDelete!.setAttribute("theme","danger")
+        buttonCancel! = #winTaskProperties!.addButton(2, "&Cancel")
+        buttonSave!   = #winTaskProperties!.addButton(1, "&Save")
+        buttonSave!.setAttribute("theme","primary")
+
+        REM Callbacks
+        buttonCancel!.setCallback(BBjControl.ON_BUTTON_PUSH, #this!, "onCancel")
+        buttonSave!.setCallback(BBjControl.ON_FORM_VALIDATION, #this!, "onSave")
+        buttonDelete!.setCallback(BBjControl.ON_BUTTON_PUSH,#this!,"onDelete")
+    methodend
+
+    REM /**
+    REM  * Given a task object, load its properties into the Task Properties window,
+    REM  * and make the window visible.
+    REM  * 
+    REM  * @param Task t!   The task to dispaly in the Task Properties window.
+    REM  */
+    method public void loadTask(Task t!)
+        #task! = t!
+        #editTitle!.setAttribute("label", "<html>Title <span style='opacity:0.25;position:absolute;right:0;'>" + #task!.getUuid())
+        #editTitle!.setText(#task!.getTitle())
+        #editDescription!.setText(#task!.getDescription())
+        dueDate! = #task!.getDueDate()
+        if (dueDate! > 0) then
+            #dateDue!.setValue(#task!.getDueDate())
+        else
+            #dateDue!.setValue(-1)
+        endif
+
+        #listPriority!.selectIndex(t!.getPriority()-1)
+        #winTaskProperties!.setVisible(1)
+    methodend
+
+    REM /**
+    REM  * Save the information from the current fields into the Task object in the #task! variable
+    REM  * 
+    REM  * @param BBjFormValidationEvent e!     The BBjFormValidationEvent that called this method
+    REM  */
+    method public void onSave(BBjFormValidationEvent e!)
+        if (#task! = null()) then methodret
+
+        REM validate title
+        title! = e!.getText(#editTitle!)
+        if (title!.trim().length() = 0) then
+            e!.accept(0)
+            tmp = msgbox("Title must not be empty.",BBjSysGui.MSGBOX_ICON_EXCLAMATION,"Invalid Title",mode="theme=warning")
+            methodret
+        endif
+
+        REM validate date
+        date! = e!.getValue(#dateDue!)
+        today! = jul(date(0))
+        limit! = 5*365
+        difference! = date!-today!
+
+        if (abs(difference!) > limit!) AND (date! <> -1) then
+            REM date out of bounds
+            e!.accept(0)
+            message! = "Date cannot be more than 5 years in the "
+            if (difference! < 0) then
+                message! = message! + "past."
+            else
+                message! = message! + "future."
+            endif
+
+            tmp = msgbox(message!,BBjSysGui.MSGBOX_ICON_EXCLAMATION,"Invalid Date",mode="theme=warning")
+            methodret
+        endif
+
+        REM Passed validations; update task and post event
+        #task!.setTitle(title!)
+        #task!.setDescription(e!.getText(#editDescription!))
+        #task!.setDueDate(date!)
+        #task!.setPriority(e!.getSelectedIndex(#listPriority!)+1)
+        #task!.setTitle(#editTitle!.getText())
+
+        #winTaskProperties!.setVisible(0)
+        BBjAPI().postCustomEvent("TASK_UPDATE",#task!)
+        e!.accept(1)
+
+    methodend
+
+    REM /**
+    REM  * Callback method for cancel button. Sets the window visibility to 0.
+    REM  * 
+    REM  * @param BBjButtonPushEvent e! The BBjButtonPushEvent that called this method.
+    REM  */
+    method public void onCancel(BBjButtonPushEvent e!)   
+        #winTaskProperties!.setVisible(0)
+        REM Clear fields, set task to null?
+    methodend
+
+    REM /**
+    REM  * Activated by the Delete button.
+    REM  * Sets the Deleted flag on the task, posts a TASK_UPDATE event, and hides the TaskProperties window.
+    REM  * 
+    REM  * @param BBjButtonPushEvent event!     The BBjButtonPushEvent that called this method
+    REM  */
+    method public void onDelete(BBjButtonPushEvent event!)
+        confirmDeleteTask! = msgbox("Are you sure you want to delete this task?", BBjSysGui.MSGBOX_BUTTONS_YES_NO + BBjSysGui.MSGBOX_ICON_EXCLAMATION, "Delete Task")
+        
+        if (confirmDeleteTask! = 6) then
+            #task!.setDeleted(1)
+            BBjAPI().postCustomEvent("TASK_UPDATE",#task!)
+            #winTaskProperties!.setVisible(0)
+        endif
+    methodend
+
+    REM /**
+    REM  * Sets the visibility on the BBjChildWindow for this class.
+    REM  *
+    REM  * @param BBjNumber visible!    A number representing the visibility to set. 0 = invisible.
+    REM  */
+    method public void setVisible(BBjNumber visible!)
+        #winTaskProperties!.setVisible(visible!)
+    methodend
+
+classend
+
+REM USE Statements
+use ::Task.bbj::Task

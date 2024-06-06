@@ -1,0 +1,108 @@
+/* Initial Settings */
+:root {
+    /* 
+    Exercise: Change DWC Custom Properties values
+    Set the value of a DWC custom property here to affect the styling of your whole application
+    */
+}
+
+/* Ensure that window content under .winMain takes up all available space */
+.winMain dwc-window-content {
+    width: 100dvw;
+    height: 100dvh;
+}
+
+.winMain {
+    display: flex;
+    max-height: 100dvh;
+}
+
+.winTaskProperties dwc-window-content > * {
+    width: 100%;
+}
+
+.task {
+    display: grid;
+    /* 
+    Exercise: Grid layout
+    Create a grid layout for your task views
+    grid-template-columns: <space separated list of sizes indicating number of columns>
+    grid-template-rows: <space separated list of sizes indicating number of rows>
+    Create style classes for the controls that are on the grid, and assign grid: and column: 
+    properties to place them in your grid.
+    */
+}
+
+
+.winTasks {
+    /* ensure that you can scroll the window */
+    overflow-y: scroll;
+    height: 100%;
+    /* 
+    Exercise: Flex Layout
+    Set the display: flex; property here
+    Set flex flow rules, gap, etc.
+    Set the flex property on the task windows
+     */
+}
+
+.winTitle {
+    /* display: grid is an easy way to get reasonable positioning and flow */
+    display: grid;
+}
+
+/* Centers dialogs */
+dwc-frame {
+    margin: auto;
+}
+
+/* 
+Exercise: font size and weight for labelDay
+- use class .labelDay
+- use DWC custom properties:
+--dwc-font-size-xl, --dwc-font-size-l
+--dwc-font-weight-bold 
+*/
+.labelDay {
+}
+
+/* 
+Exercise: background-color for winToolBar
+Flex display exercise: add flex and flex-flow and gap to winToolBar
+ */
+ .winToolBar {
+}
+
+
+/*
+Exercise: Inspecting the page
+There is a DWC element that covers the whole screen when the TaskProperties window opens.
+What is it called?
+Create a CSS style targeting that element, and change its background color */
+/* 
+
+/* 
+Exercise: Media Queries
+Change some aspect of your CSS when the width is below/above a certain size
+
+@media (width <= value) {
+    <css here>
+}
+*/
+
+/* 
+Exercise: Pseudo-Classes
+Create CSS Selectors for :hover states
+ */
+
+ /* 
+ Exercise: Transitions
+ Create a transition effect on the style you used for 
+ the hover states
+ */
+ 
+/* 
+Bonus Exercise: Color of priority flags
+Each priority flag has a class indicating its priority. 
+Create CSS Style definitions to color the priority flags!
+*/

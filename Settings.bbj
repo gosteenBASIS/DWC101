@@ -1,0 +1,293 @@
+REM /**
+REM  * This class is responsible for managing the user's preferences and app settings for the TaskApp
+REM  */
+class public Settings
+
+    REM To Do Items
+    REM     - Define background colors or gradients for the main window (winMain)
+    REM     - Define the font size, weight, and spacing
+    REM     - Add an option for native controls (for now, probably just the BBjColorChooser)
+
+    REM BBjControls for the Settings dialog
+    field protected BBjTopLevelWindow   winSettings!
+    field protected BBjSysGui           sysgui! = BBjAPI().getSysGui()
+    field protected BBjWebManager       webManager! = BBjAPI().getWebManager()
+
+    REM BBjControls for the Settings Font Chooser dialog
+    field private BBjTopLevelWindow     winFontChooser!
+    field private BBjChildWindow        winFontChooserType!
+    field private BBjChildWindow        winFontChooserSource!
+    field private BBjChildWindow        winFontChooserFamilies!
+    field private BBjChildWindow        winFontChooserFontProps!
+    field private BBjChildWindow        winFontChooserInfo!
+    field private BBjChildWindow        winFontChooserControls!
+    field private BBjRadioButton        switchTheme!
+    field private BBjRadioButton        switchTips!
+    field private BBjListButton         lstFontFamily!
+    field private BBjVector             vectFontFamilies! = BBjAPI().makeVector()
+
+    REM /** The hashmap that stores all the user's preferences */
+    field private HashMap hashPrefs!
+
+    REM /**
+    REM  * Settings screen constructor
+    REM  */
+    method public Settings()
+
+        REM Create a list of font families filled with various Google fonts that the user will be able to choose from to style the tasks
+        DATA "Marcellus SC", "Marko One", "Merriweather", "Oswald", "Rambla", "Signika", "Teko", "Ubuntu", "Ubuntu Mono", "Work Sans", "Asap"
+        DATA "K2D", "Bebas Neue", "Fira Sans", "Fira Sans Condensed", "Archivo Narrow",  "Lato", "Barlow Condensed", "Dosis", "Exo 2"
+        DATA "Gentium Book Basic", "Kanit", "Montserrat", "Poppins", "Poetsen One", "Rubik", "Roboto"
+        fontFamily! = "?"
+        while 1
+            DREAD family$,err=*BREAK
+            #vectFontFamilies!.addItem(family$)
+            fontFamily! = fontFamily! + "&family=" + family$
+        wend
+        fontFamily! = fontFamily!.replaceAll(" ", "+")
+
+        REM Sort the vector of fonts alphabetically by name
+        java.util.Collections.sort(#vectFontFamilies!)
+
+        REM Inject links for the custom Google fonts so that they'll be available on the client
+        #webManager!.injectLinkUrl("https://fonts.googleapis.com", 1, "rel=preconnect")
+        #webManager!.injectLinkUrl("https://fonts.gstatic.com", 1, "crossorigin")
+        #webManager!.injectLinkUrl("https://fonts.googleapis.com/css2?" + fontFamily!, 1, "rel=stylesheet,display=swap")
+    methodend
+
+
+    REM /**
+    REM  * Shows the TaskApp's settings window
+    REM  *
+    REM  * @param HashMap hashPrefs!    The HashMap of user preferences passed in by the TaskApp which contains all the user's preferences for the settings options
+    REM  */
+    method public void onShowSettings(HashMap hashPrefs!)
+        REM Save the HashMap of the user's preferences that was passed in
+        #hashPrefs! = hashPrefs!
+
+        REM Create the window and controls if it doesn't yet exist.  Otherwise, we'll simply display the existing one that we created and previously hid.
+        if (#winSettings! = null()) then
+
+            REM Create a linefeed-delimited list of font families from the vectory to populate the BBjListButton
+            fontFamiliesList! = java.lang.String.join($0a$, java.util.Arrays.asList(#vectFontFamilies!))
+            REM Modfify each entry in the list so that use uses HTML markup to style the font name to that font family
+            regExSearchFor! = "(?mi)^(.*)$"
+            REM regExReplaceWith! = "<html><span style='font-family:$1;font-weight:var(--app-font-weight-task);font-size:var(--app-font-size-task);letter-spacing:var(--app-font-spacing-task);'>$1</span>"
+            regExReplaceWith! = "<html><span style='font-family:$1'>$1</span>"
+            fontFamiliesList! = fontFamiliesList!.replaceAll(regExSearchFor!, regExReplaceWith!)
+
+            REM Create the settings window and controls
+            #winSettings! = #sysgui!.addWindow(#sysgui!.getAvailableContext(), "TaskApp Settings", $011B0010$)
+            #winSettings!.addClass("winSettings fadeIn")
+            #winSettings!.setOuterStyle("overflow", "hidden")
+            #winSettings!.setIcon(dsk("")+dir("")+"images/DWCTaskApp.png")
+
+            REM Create the title and the [Done] button that closes the settings window
+            title! = #winSettings!.addStaticText("Settings", $4000$)
+            title!.addClass("settingsTitle")
+            settingsDone! = #winSettings!.addButton("Done")
+            settingsDone!.addClass("settingsDone")
+
+            REM Options (tooltips)
+            text! = #winSettings!.addStaticText("Options")
+            text!.addClass("settingsCategoryTitle")
+            winOptions! = #winSettings!.addChildWindow("winOptions", $00108800$, #sysgui!.getAvailableContext())
+            winOptions!.setName("winOptions")
+            winOptions!.addClass("settingsContainer")
+            text! = winOptions!.addStaticText("<html><dwc-icon pool='tabler' name='message' class='settingsIcon'></dwc-icon>&&nbsp;Show Tooltips")
+            text!.addClass("settingsLabel")
+            #switchTips! = cast(BBjChildWindow, winOptions!).addRadioButton("")
+            #switchTips!.setAttribute("switch", "true")
+            #switchTips!.addClass("switchTips settingsSwitch")
+
+            REM Personalization (Dark/Light Theme)
+            text! = #winSettings!.addStaticText("Personalization")
+            text!.addClass("settingsCategoryTitle")
+            winPersonalization! = #winSettings!.addChildWindow("winPersonalization", $00108800$, #sysgui!.getAvailableContext())
+            winPersonalization!.setName("winPersonalization")
+            winPersonalization!.addClass("settingsContainer")
+            text! = winPersonalization!.addStaticText("<html><dwc-icon pool='tabler' name='palette' class='settingsIcon'></dwc-icon>&&nbsp;Theme")
+            text!.addClass("settingsLabel")
+            #switchTheme! = cast(BBjChildWindow, winPersonalization!).addRadioButton("")
+            #switchTheme!.setAttribute("switch", "true")
+            #switchTheme!.addClass("switchTheme settingsSwitch")
+
+            REM Color (Choosing the DWC's primmary color hue)
+            text! = #winSettings!.addStaticText("Color")
+            text!.addClass("settingsCategoryTitle")
+            win! = #winSettings!.addChildWindow("", $00108800$, #sysgui!.getAvailableContext())
+            win!.addClass("settingsChildWindow settingsContainer")
+            text! = win!.addStaticText("<html><dwc-icon pool='tabler' name='color-swatch' class='icon'></dwc-icon>&&nbsp; Color")
+            text!.addClass("settingsLabel")
+            colorPicker! = win!.addColorChooser()
+            colorPicker!.setAttribute("popup", "true")
+            colorPicker!.setAttribute("theme", "primary")
+            hue! = #winSettings!.getComputedStyle("--app-color-h")
+            colorPicker!.putClientProperty("value", "hsl(" + hue! + ", 75%, 35%)")
+            colorPicker!.putClientProperty("components", "hue, preview, eyeDropper, input")
+
+            REM Font Family
+            text! = #winSettings!.addStaticText("Font")
+            text!.addClass("settingsCategoryTitle")
+            win! = #winSettings!.addChildWindow("", $00108800$, #sysgui!.getAvailableContext())
+            win!.addClass("settingsChildWindow settingsContainer")
+            text! = win!.addStaticText("<html><dwc-icon pool='tabler' name='typography' class='icon'></dwc-icon>&&nbsp; Task Font")
+            text!.addClass("settingsLabel")
+            #lstFontFamily! = cast(BBjListButton, win!.addListButton(fontFamiliesList!))
+            #lstFontFamily!.setAttribute("placement", "top-start")
+
+            REM About
+            text! = #winSettings!.addStaticText("About the App")
+            text!.addClass("settingsCategoryTitle")
+            win! = #winSettings!.addChildWindow("", $00108800$, #sysgui!.getAvailableContext())
+            win!.addClass("settingsChildWindow settingsContainer")
+            text! = win!.addStaticText("<html><dwc-icon pool='tabler' name='info-circle' class='icon'></dwc-icon>&&nbsp; About")
+            settingsAbout! = win!.addButton("<html>Version " + #hashPrefs!.get("prefsVersion").toString() + " <dwc-icon pool='tabler' name='chevron-right' class='chevron'></dwc-icon>")
+            settingsAbout!.addClass("toolbar_icon settingsValue")
+
+            REM Set the control callbacks
+            settingsDone!.setCallback(BBjButton.ON_BUTTON_PUSH, #this!, "onSettingsDone")
+            #switchTheme!.setCallback(BBjRadioButton.ON_CHECK_CHANGE, #this!, "onSettingsTheme")
+            #switchTips!.setCallback(BBjRadioButton.ON_CHECK_CHANGE, #this!, "onSettingsTooltip")
+            settingsAbout!.setCallback(BBjButton.ON_BUTTON_PUSH, #this!, "onSettingsAbout")
+            #lstFontFamily!.setCallback(BBjListButton.ON_LIST_CHANGE, #this!, "onSettingsChangeFontFamily")
+            colorPicker!.setCallback(BBjColorChooser.ON_COLORCHOOSER_CHANGE, #this!, "onSettingsHue")
+        endif
+
+        REM Ensure that the settings screen matches the preferences (especially if the settings screen is reused)
+        #switchTheme!.setSelected(iff(#hashPrefs!.get("prefsTaskTheme") = "dark", 1, 0))
+        #switchTips!.setSelected(iff(#hashPrefs!.get("prefsTaskTips") = "1", 1, 0))
+
+        REM Select the correct font family in the BBjListEdit
+        #selectPreferredFontFamily()
+
+        REM Since we created the window from BBj as hidden, we have to show it.
+        #winSettings!.setVisible(1)
+    methodend
+
+
+    REM /**
+    REM  * Selects the user's preferred font family in the list
+    REM  */
+    method public void selectPreferredFontFamily()
+        fontFamily! = #hashPrefs!.get("prefsTaskFontFamily").toString()
+        if (#vectFontFamilies!.contains(fontFamily!)) then
+            REM Select the user's preferred font family in the list
+            #lstFontFamily!.selectIndex(#vectFontFamilies!.indexOf(fontFamily!))
+        else
+            REM Since the user's preferred font family for the tasks wasn't in the vector, we'll default to the first item in the list
+            #lstFontFamily!.selectIndex(0)
+        endif
+    methodend
+
+
+    REM /**
+    REM  * Closes the settings dialog
+    REM  */
+    method public void onSettingsDone(BBjButtonPushEvent event!)
+        #winSettings!.setVisible(0)
+        BBjAPI().postCustomEvent("SETTINGS_UPDATE", #hashPrefs!)
+    methodend
+
+
+    REM /**
+    REM  * Sets the theme to dark or light
+    REM  */
+    method public void onSettingsTheme(BBjCheckChangeEvent event!)
+        declare auto BBjRadioButton control!
+
+        REM Figure out if the user chose the dark or light theme based on the state of the radiobutton
+        control! = event!.getControl()
+        prefsTaskTheme! = iff(control!.isSelected(), "dark", "light")
+
+        REM Set the theme so the user sees the change, then store it in the preferences HashMap and let the Taskapp know
+        #hashPrefs!.put("prefsTaskTheme", prefsTaskTheme!)
+        BBjAPI().postCustomEvent("SETTINGS_UPDATE", #hashPrefs!)
+    methodend
+
+
+    REM /**
+    REM  * Enables or disables the tooltips on tasks
+    REM  */
+    method public void onSettingsTooltip(BBjCheckChangeEvent event!)
+        declare auto BBjRadioButton control!
+
+        control! = event!.getControl()
+        prefsTaskTips! = iff(control!.isSelected(), "1", "0")
+        #hashPrefs!.put("prefsTaskTips", prefsTaskTips!)
+        BBjAPI().postCustomEvent("SETTINGS_UPDATE", #hashPrefs!)
+
+        temp = msgbox("Your tooltip changes will be applied the next time the app is run.", BBjSysGui.MSGBOX_ICON_INFORMATION, "Tooltips Updated", mode="theme=primary")
+    methodend
+
+
+    REM /**
+    REM  * Sets the app's primary color hue
+    REM  */
+    method public void onSettingsHue(BBjColorChooserChangeEvent event!)
+        declare auto BBjColorChooser control!
+
+        REM Store the chosen hue in the preferences HashMap
+        control! = event!.getControl()
+        hue! = str(control!.getClientProperty("hue"))
+        #hashPrefs!.put("prefsTaskHue", hue!)
+
+        REM Let the Taskapp know that we updated the preferences
+        BBjAPI().postCustomEvent("SETTINGS_UPDATE", #hashPrefs!)
+    methodend
+
+
+    REM /**
+    REM  * Callback that's executed when the user selects a custom font family.
+    REM  * This gets the list button's selected index, then resolves that to
+    REM  * a custom font family that's stored in the #vectFontFamilies!
+    REM  * vector.  It then sets the CSS custom property for the DWC's
+    REM  * sans-serif font family to the chosen font.
+    REM  *
+    REM  * @param BBjListChangeEvent event!    The BBjListButton's ON_LIST_CHANGE event
+    REM  */
+    method public void onSettingsChangeFontFamily(BBjListChangeEvent event!)
+        declare auto BBjString fontFamily!
+
+        REM Get the selected item from the list
+        fontFamilyHtml! = event!.getSelectedItem()
+
+        REM Since the item has HTML markup to style the family namne, remove all the HTML tags
+        fontFamily! = fontFamilyHtml!.replaceAll("<[^>]*>", "")
+
+        REM Save out the user's preferred task font family in the preferences
+        #hashPrefs!.put("prefsTaskFontFamily", fontFamily!)
+        #selectPreferredFontFamily()
+
+        REM Let the Taskapp know that we updated the preferences
+        BBjAPI().postCustomEvent("SETTINGS_UPDATE", #hashPrefs!)
+    methodend
+
+
+    REM /**
+    REM  * Opens the dialog that lets the user choose a font family from a variety of sources that originate from the CSSFonts.csv file
+    REM  */
+    method public void onSettingsAbout(BBjButtonPushEvent event!)
+        REM msg! = "<html><img src=""https://public.basis.cloud/images/DWCTaskApp.svg"" height=""0px""> DWC TaskApp version " + #version!
+        msg! = "<html><div style='padding: 0.75em 0 0 0;'>The TaskApp application was authored by: "
+        msg! = msg! + "<ul>"
+        msg! = msg! + "<li>Alex Anastassatos</li>"
+        msg! = msg! + "<li>Bryan Highhill</li>"
+        msg! = msg! + "<li>Garrison Osteen</li>"
+        msg! = msg! + "<li>Nick Decker</li>"
+        msg! = msg! + "</ul></div>"
+        mode! = "theme=primary,ICON=./images/DWCTaskApp.png,ICONWIDTH=42"
+        temp = msgbox(msg!, BBjSysGui.MSGBOX_ICON_INFORMATION, "TaskApp  Version " + #hashPrefs!.get("prefsVersion").toString(), mode=mode!)
+    methodend
+
+classend
+
+REM BBj USE Statements
+use ::TaskApp.bbj::TaskApp
+use ::CssFontFamily.bbj::CssFontFamily
+use ::Utils.bbj::Utils
+
+REM Java USE Statements
+use java.util.HashMap
+use java.util.LinkedHashMap
+use java.util.Collections

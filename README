@@ -1,0 +1,22 @@
+Welcome to DWC 101!
+
+The source code for this class is available at
+https://github.com/gosteenBASIS/DWC101
+
+The slides for this class are available here:
+-----
+
+There are two programs you can work with in this class:
+- hello.bbj
+- TaskApp.bbj
+
+hello.bbj is a very simple program that can run in GUI, BUI, and the DWC.
+
+TaskApp.bbj is a larger program that includes Task.bbj, TaskProperties.bbj, 
+TaskView.bbj, Utils.bbj, Settings.bbj, and DWC101.css.
+The program is written in an object-oriented style that will make it less 
+overwhelming to work with, so that you can make modifications to files and 
+methods without needing to understand every aspect of the program as a whole.
+
+If you find yourself feeling overwhelmed, remember that you can practice many
+of the exercises on hello.bbj to get your bearings. 

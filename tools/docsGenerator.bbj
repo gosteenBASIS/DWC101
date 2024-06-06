@@ -1,0 +1,65 @@
+REM /**
+REM  * docsGenerator.bbj
+REM  * @author ndecker
+REM  *
+REM  */
+
+
+REM Define this tools' folder and derive the project folder from it
+toolsPath! = dsk("")+dir("")
+
+REM Ensure that we have the correct separator
+fileSeparator! = File.separator
+if !(toolsPath!.contains(fileSeparator!)) then fileSeparator! = "/"
+
+REM Define the project path
+if (toolsPath!.endsWith(fileSeparator!)) then toolsPath! = toolsPath!.substring(0, toolsPath!.length() - 1)
+projectPath! = toolsPath!.substring(0, toolsPath!.lastIndexOf(fileSeparator!))
+
+REM Get a listing of all the .bbj files in the project folder and add them to the ArrayList
+projectFolder! = new File(projectPath!)
+filesList! = projectFolder!.list()
+programFiles! = new ArrayList()
+for i = 0 TO filesList!.length - 1
+    currentFile! = new File(projectPath! + fileSeparator! + filesList![i])
+    if (!currentFile!.isDirectory() AND currentFile!.getName().toLowerCase().endsWith(".bbj")) then
+        programFiles!.add(currentFile!.getCanonicalPath())
+    endif
+next i
+
+REM Ensure that the output destination directory exists
+outputFolder! = new File(projectPath! + fileSeparator! + "docs")
+outputFolder!.mkdirs()
+
+REM Generate the JavaDocs
+generator! = new BBjDocsGenerator()
+params! = new BBjDocsParameters()
+params!.enableVerbose()
+params!.includePublicProtectedPrivateVisibility()
+generator!.generateBBjdoc(programFiles!, outputFolder!.getCanonicalPath(), params!)
+
+REM Print out the results
+print "Generated JavaDocs for " + str(programFiles!.size()) + " program files"
+print "JavaDocs located in " + outputFolder!.getCanonicalPath()
+
+REM Open up the generated documentation in a browser
+url! = "file:///" + outputFolder!.getCanonicalPath().replaceAll(" ", "%20").replaceAll("\\","/") + "/index.html"
+BBjAPI().getThinClient().browse(url!)
+end
+
+
+REM USE Statements
+use java.io.File
+use java.util.ArrayList
+use com.basis.bbjutilities.bbjdocsgenerator.BBjDocsGenerator
+use com.basis.bbjutilities.bbjdocsgenerator.BBjDocsParameters
+
+REM DECLARE statements
+declare auto BBjString          toolsPath!
+declare auto BBjString          projectPath!
+declare auto File               projectFolder!
+declare auto File               outputFolder!
+declare auto File               currentFile!
+declare auto ArrayList          programFiles!
+declare auto BBjDocsGenerator   generator!
+declare auto BBjDocsParameters  params!

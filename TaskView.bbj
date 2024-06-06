@@ -1,0 +1,230 @@
+REM /**
+REM  * TaskView.bbj
+REM  * @author gosteen
+REM  */
+REM package TaskApp
+
+REM /**
+REM  *  The view controller for tasks that are displayed by the Task App.  Serves as the basis for TaskListView and TaskCardView
+REM  */
+class public TaskView
+    field public       BBjChildWindow  Win!
+    field protected    Task            task!
+    field protected    BBjString       uuid!
+    field protected    BBjPopupMenu    flagPopupMenu!
+    field protected    BBjSysGui       sysgui!
+    field protected    BBjStaticText   title!
+    field protected    BBjStaticText   description!
+    field protected    BBjCheckBox     checkbox!
+    field protected    BBjStaticText   dueNotice!
+    field protected    BBjStaticText   priorityFlag!
+    field protected    BBjString       flagIcon! = "<html><dwc-icon pool='tabler' name='flag-2-filled'></dwc-icon>"
+    field protected    BBjButton       btnDeleteTask!
+
+    REM /**
+    REM  * Constructor for the TaskView object
+    REM  *
+    REM  * @param BBjWindow parent!     The parent BBjWindow that this TaskView will be added to
+    REM  * @param Task t!               The Task object containing the task information that will be displayed
+    REM  * @return TaskView             The newly created TaskView
+    REM  *
+    REM  */
+    method public TaskView(BBjWindow parent!, Task t!)
+        #sysgui! = BBjAPI().getSysGui()
+        #task! = t!
+        #uuid! = #task!.getUuid()
+
+        #Win! = parent!.addChildWindow("", $00108000$, #sysgui!.getAvailableContext())
+        #Win!.setAttribute("id", #uuid!)
+        #Win!.addClass("task")
+
+        #title! = #Win!.addStaticText("")
+        #title!.addClass("textTitle")
+        
+        #description! = #Win!.addStaticText("")
+        #description!.addClass("textDescription")
+        
+        #checkbox! = #Win!.addCheckBox("Mark as Complete")
+        #checkbox!.setCallback(BBjControl.ON_CHECK_CHANGE, #this!, "onTaskCheck")
+        
+        #dueNotice! = #Win!.addStaticText("")
+        #dueNotice!.addClass("dueNotice")
+        
+        #priorityFlag! = #Win!.addStaticText(#flagIcon!)
+        #priorityFlag!.addClass("priorityFlag")
+        #priorityFlag!.setCallback(BBjControl.ON_POPUP_REQUEST, #this!, "OnShowPriorityPopup")
+        
+        trashIcon! = "<html><dwc-icon pool='tabler' name='trash' style='width: 25px; height: 25px'></dwc-icon>"
+        #btnDeleteTask! = #Win!.addButton(trashIcon!)
+        #btnDeleteTask!.addClass("btnDelete")
+        #btnDeleteTask!.setCallback(BBjControl.ON_BUTTON_PUSH, #this!, "onDelete")
+        #setPriorityFlag()
+        #refresh()
+    methodend
+
+    REM /**
+    REM  * Refresh the TaskView with the latest information from its Task object.
+    REM  * This is called from the TaskApp class when a TASK_UPDATE event is posted.
+    REM  */
+    method public void refresh()
+        if (#task!.getDeleted()) then
+            #setVisible(0)
+        endif
+        #clearStyles()
+        #title!.setText(#task!.getTitle())
+        #description!.setText(#task!.getDescription())
+        #checkbox!.setSelected(#task!.getComplete())
+        label! = "Mark as Complete"
+        if (#task!.getComplete()) then
+            #Win!.addClass("complete")
+            label! = "Mark as Incomplete"
+        endif
+        #checkbox!.setAttribute("label",label!)
+
+        #setPriorityFlag()
+        #setDueNotice()
+        if (#flagPopupMenu! <> null()) then
+            for i = Task.PRIORITY_HIGH() to Task.PRIORITY_LOW()
+                menuItem! = #flagPopupMenu!.getMenuItem(i)
+                menuItem!.setVisible(1)
+                REM Hide the flag that matches the task's current priority
+                if (#task!.getPriority() = i) then
+                    menuItem!.setVisible(0)
+                endif
+            next i
+        endif
+        
+        #description!.setToolTipText(#task!.getDescription())
+        #title!.setToolTipText(#task!.getTitle())
+    methodend
+
+    REM /**
+    REM  * Sets the visibility of the ChildWindow of the TaskView
+    REM  * Calls setVisible on #Win!
+    REM  *
+    REM  * @param BBjNumber visible!   BBjNumber acting as a boolean specifying the visibility
+    REM  */
+    method public void setVisible(BBjNumber visible!)
+        #Win!.setVisible(visible!)
+    methodend
+
+    REM /**
+    REM  * Removes the style classes for all possible statuses.
+    REM  */
+    method public void clearStyles()
+        #Win!.removeClass("complete incomplete")
+    methodend
+
+    REM /**
+    REM  * Sets the label for when the task is due.  If the due date of the task is ahead of the current date,
+    REM  * the label will be set to the current date. If the due date of the task is equal to the current date,
+    REM  * the label will be set to "Due Today!"  If the due date of the task has already passed, the label will be set
+    REM  * to "Past Due!"
+    REM  */
+    method public void setDueNotice()
+        #dueNotice!.removeClass("dueToday pastDue complete")
+        dueNotice! = ""
+        dueDate! = #task!.getDueDate()
+        formattedDueDate! = date(#task!.getDueDate():"%Dl, %Ml %D")
+        #dueNotice!.addClass("dueNotice")
+        if (#task!.getComplete()) then
+            dueNotice! = "<html><dwc-icon pool='tabler' name='check'></dwc-icon>&nbsp;Complete"
+            #dueNotice!.addClass("complete")
+        else
+            if (dueDate! > -1) then
+                dueNotice! = "Due " + formattedDueDate!
+                #dueNotice!.setToolTipText("Due " + formattedDueDate!)
+                if (dueDate! < jul(date(0))) then
+                    dueNotice! = "Past Due!"
+                    #dueNotice!.addClass("pastDue")
+                endif
+    
+                if (dueDate! = jul(date(0))) then
+                    dueNotice! = "Due Today!"
+                    #dueNotice!.addClass("dueToday")
+                endif
+            endif        
+        endif
+        
+        #dueNotice!.setText(dueNotice!)
+    methodend
+
+    REM /**
+    REM  * Adds a priority flag icon which represents the task's priority level.
+    REM  */
+    method public void setPriorityFlag()
+        flagText! = "Priority " + STR(#task!.getPriority())
+        #priorityFlag!.removeClass("priority-1 priority-2 priority-3 priority-4 priority-5 priority-0 priority-transparent")
+        #priorityFlag!.addClass("priority-" + STR(#task!.getPriority()))
+        #priorityFlag!.setToolTipText(flagText!)
+        if (#task!.getComplete()) then
+            #priorityFlag!.addClass("priority-transparent")
+        endif
+    methodend
+
+    REM /**
+    REM  * Creates a BBjPopupMenu that contains flag icons representing every priority level except for
+    REM  * the task's priority level.
+    REM  */
+    method public void createPopupMenu()
+        #flagPopupMenu! = #sysgui!.addPopupMenu()
+        for i = Task.PRIORITY_HIGH() to Task.PRIORITY_LOW()
+            flagItem! = #flagPopupMenu!.addMenuItem(-i, #flagIcon!)
+            if (#task!.getPriority() = i) then flagItem!.setVisible(0)
+
+            flagItem!.addClass("priority-flag priority-" + str(i))
+            flagItem!.setCallback(flagItem!.ON_POPUP_ITEM_SELECT, #this!, "changePriority")
+        next i
+    methodend
+
+    REM /**
+    REM  * Method to run when a task's checkbox is changed
+    REM  *
+    REM  * @param BBjCheckChangeEvent e!    The BBjCheckChangeEvent that invoked this method
+    REM  */
+    method public void onTaskCheck(BBjCheckChangeEvent e!)
+        #clearStyles()
+        if (#task!.getComplete()) then
+            #task!.setComplete(0)
+        else
+            #task!.setComplete(1)
+        endif
+        BBjAPI().postCustomEvent("TASK_UPDATE",#task!)
+    methodend
+
+    REM /**
+    REM  * Triggers message box which prompts user for confirmation before deleting a task
+    REM  *
+    REM  * @param BBjButtonPushEvent e!     The BBjButtonPushEvent that causes this method to be executed
+    REM  */
+    method public void onDelete(BBjButtonPushEvent e!)
+        confirmDeleteTask! = msgbox("Are you sure you want to delete this task?", BBjSysGui.MSGBOX_BUTTONS_YES_NO + BBjSysGui.MSGBOX_ICON_EXCLAMATION, "Delete Task")
+    
+        if (confirmDeleteTask! = 6) then
+            #task!.setDeleted(1)
+            BBjAPI().postCustomEvent("TASK_UPDATE",#task!)
+        endif
+    methodend
+
+    method public void OnShowPriorityPopup(BBjPopupRequestEvent event!)
+        if (#flagPopupMenu! = null()) then #createPopupMenu()
+        #flagPopupMenu!.show(event!.getControl(), 0, 0)
+    methodend
+
+    REM /**
+    REM  * -Changes task priority level to priority level selected from the #flagPopupMenu!
+    REM  *
+    REM  * @param BBjPopupSelectEvent e!    The BBjPopupSelectEvent that causes this method to be executed
+    REM  */
+    method public void changePriority(BBjPopupSelectEvent e!)
+        newPriority! = ABS(e!.getMenuItem().getID())
+
+        #task!.setPriority(newPriority!)
+        BBjAPI().postCustomEvent("TASK_UPDATE", #task!)
+    methodend
+
+classend
+
+REM BBj USE Statements
+use ::Task.bbj::Task
+use ::Utils.bbj::Utils

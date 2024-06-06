@@ -1,0 +1,847 @@
+REM /**
+REM  * TaskApp.bbj
+REM  * @author gosteen, ndecker, bhighhill, aanasta
+REM  */
+REM package TaskApp
+
+
+declare auto TaskApp app!
+app! = new TaskApp()
+app!.run()
+end
+
+
+REM /**
+REM  * A DWC-specific task manager BBj program.
+REM  *
+REM  * The TaskApp program was designed to a be part of a tutorial series that covers
+REM  * how to write a graphical web-based application in BBj. It's designed to run
+REM  * in the BASIS Dynamic Web Client (DWC), and takes advantage of several DWC
+REM  * features including light/dark theme support, responsive design, and making
+REM  * use of 3rd-party web components.
+REM  */
+class public TaskApp
+
+    REM Protected Fields
+    REM ========================================
+    field protected BBjSysGui           sysgui!
+    field protected BBjWebManager       webManager!
+    field protected BBjThinClient       thinClient!
+    field protected BBjString           clientOs!
+    field protected BBjTopLevelWindow   winMain!
+    field protected TaskProperties      taskProperties!
+    field protected BBjChildWindow      winToolBar!
+    field protected BBjChildWindow      winTitle!
+    field protected BBjChildWindow      winTasks!
+
+    REM /** The Settings class that shows the settings window for the application */
+    field protected Settings            settings!
+
+    REM /** The hashmap that stores all the user's preferences */
+    field private HashMap hashPrefs!
+
+    REM Misc Data
+    field protected BBjString           appName! = "TaskApp"
+    field protected BBjString           version! = "0.1"
+    field protected BBjString           appPath! = dsk("") + dir("")
+
+    REM /**
+    REM  * A collection of Task objects in a Java TreeMap
+    REM  * Key:   UUID of the Task
+    REM  * Value: Task object
+    REM  * @see <a href='https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/TreeMap.html' target='_blank'>TreeMap</a> documentation
+    REM  */
+    field protected TreeMap tasks!
+    field protected TreeMap taskViews!
+
+    REM Constructor
+    REM ========================================
+    method public TaskApp()
+
+        REM Log the startup time
+        Utils.consoleLog("Starting at " + date(0:"%Y-%Mz-%Dz %Hz:%mz:%sz"))
+
+        REM Instatiate the WebManager and use it to inject the app's CSS
+        #webManager! = BBjAPI().getWebManager()
+        
+        REM Exercise 1: Modify injectCSSFile method, and Inject CSS Files here
+        #injectCSSFile("DWC101.css")
+
+        #initHashPrefs()
+        #loadPrefsFromCookie()
+
+        REM Force the browser's background to change ASAP
+        #setCssProperty("--app-color-h", #hashPrefs!.get("prefsTaskHue").toString())
+
+        REM Change the "click to reload web application" message
+        #webManager!.setEndAction(#webManager!.msgAction("Launch the TaskApp"))
+        #webManager!.setErrAction(#webManager!.msgAction("Launch the TaskApp"))
+
+        REM To prevent the user from accidentally pinching and zooming on a phone
+        #webManager!.setMeta("viewport", "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no")
+
+        REM Set the app's icon in the browser's tab
+        url! = "https://public.basis.cloud/images/DWCTaskApp.svg"
+        attrib! = "rel=icon,type=image/svg,id=dwc_taskapp_icon"
+        #webManager!.injectLinkUrl(url!, 1, attrib!, err=*NEXT)
+
+        REM Set the title of the app
+        #webManager!.setTitle("TaskApp", "{BrowserTitle}")
+
+        REM Set the homescreen icon for smartphones and tablets
+        url! = "https://public.basis.cloud/images/DWCTaskApp.png"
+        #webManager!.injectLinkUrl(url!, 1, "rel=SHORTCUT ICON,type=image/png")
+        #webManager!.injectLinkUrl(url!, 1, "rel=apple-touch-icon,type=image/png")
+        #webManager!.injectLinkUrl(url!, 1, "rel=icon,type=image/png")
+
+        REM Create the collection for the tasks
+        #tasks! = new TreeMap()
+        #taskViews! = new TreeMap()
+
+        REM Turn off tooltips on iOS
+        #thinClient! = BBjAPI().getThinClient()
+        #clientOs! = #thinClient!.getClientOSName().replaceAll(" ", "_")
+        if (#clientOs!.contains("iOS")) then #hashPrefs!.put("prefsTaskTips", "0")
+
+        REM Register for a custom event that the TaskProperties fires after the user is done editing or adding a task
+        BBjAPI().setCustomEventCallback("TASK_UPDATE",#this!,"onTaskUpdate")
+
+        REM Register for a custom event that the user has  modified their preferences via the Settings dialog
+        BBjAPI().setCustomEventCallback("SETTINGS_UPDATE",#this!,"onSettingsUpdate")
+    methodend
+
+
+    REM Methods
+    REM ========================================
+    REM /**
+    REM  * Runs the TaskApp application
+    REM  */
+    method public void run()
+        #importTasks()
+
+        REM Create the UI and display the tasks
+        #sysgui! = BBjAPI().openSysGui("X0")
+        #createMainWindow()
+        process_events
+    methodend
+    
+    REM /**
+    REM  * Injects the CSS file given from the fileName! into the webManager.
+    REM  * Depends on the definitions of #appPath! and #webManager!
+    REM  * Sets the name of the CSS file to taskapp_filename_css.
+    REM  *
+    REM  * @param BBjString fileName!  The name of the CSS file
+    REM  */
+    method public void injectCSSFile(BBjString fileName!)
+        REM Exercise 1:
+        REM Open the file by combining with the #appPath! variable
+        REM https://documentation.basis.cloud/BASISHelp/WebHelp/commands/open_verb.htm
+        REM READ RECORD into a string variable
+        REM https://documentation.basis.cloud/BASISHelp/WebHelp/commands/read_verb.htm
+        REM Use #webManager!.injectStyle 
+        REM https://documentation.basis.cloud/BASISHelp/WebHelp/bui/BBjBuiManager/BBjBuiManager_injectStyle.htm
+        chan = unt
+        open(chan,isz=-1) #appPath!+fileName!
+        read record(chan,siz=1000000) css$
+        close(chan)
+
+        #webManager!.injectStyle(css$, 1, "name=taskapp_"+fileName!.toLowerCase().replace(".","_"))
+    methodend
+    
+    REM /**
+    REM  *  Create the HashMap to store the user preferences and load it with the default values
+    REM  */
+    method protected void initHashPrefs()
+        #hashPrefs! = new HashMap()
+        #hashPrefs!.put("prefsTaskTheme", "system")
+        #hashPrefs!.put("prefsTaskFontFamily", "Rambla")
+        #hashPrefs!.put("prefsTaskFontWeight", "var(--dwc-font-weight-bold)")
+        #hashPrefs!.put("prefsTaskFontSize", "var(--dwc-font-size-m)")
+        #hashPrefs!.put("prefsTaskFontSpacing", "normal")
+        #hashPrefs!.put("prefsDefaultTaskPriority", "3")
+        #hashPrefs!.put("prefsTaskView", "list")
+        #hashPrefs!.put("prefsTaskHue", "15")
+        #hashPrefs!.put("prefsTaskTips", "1")
+        #hashPrefs!.put("prefsVersion", #version!)
+    methodend
+    
+    REM /**
+    REM  * Read the user's preferences from a cookie, then apply all saved values to the HashMap of user preferences
+    REM  * This means that the HashMap that was initially filled with default values will now contain the user's saved preferences
+    REM  */
+    method protected void loadPrefsFromCookie()
+        hashPrefsFromCookie! = Utils.getCookies(#appName!,err=*NEXT)
+        if (hashPrefsFromCookie! <> null()) then
+            it! = hashPrefsFromCookie!.keySet().iterator()
+            while (it!.hasNext())
+                key! = it!.next()
+                if (#hashPrefs!.containsKey(key!)) then
+                    value! = hashPrefsFromCookie!.get(key!)
+                    #hashPrefs!.put(key!, str(value!))
+                endif
+            wend
+        endif
+
+        REM We always override whatever version was saved in the client's history with the latest from the app
+        #hashPrefs!.put("prefsVersion", #version!)
+        
+        REM Log the user's preferences
+        Utils.consoleLogValues("User's Preferences after getting cookie:", #hashPrefs!.toString())
+    methodend
+    
+    REM /**
+    REM  * Create the main window for the application
+    REM  */
+    method public void createMainWindow()
+        #winMain! = #sysgui!.addWindow("TaskApp", $011C1091$)
+        #winMain!.addClass("winMain fadeIn")
+        #winMain!.setIcon(#appPath!+"images/DWCTaskApp.png")
+
+        REM Add a special class to the main window based on the client's operating system
+        #winMain!.addClass(#clientOs!)
+
+        REM Create the other windows
+        #winToolBar! = #createWinToolBar()
+        #winTitle! = #createWinTitle()
+
+        REM TASK VIEW: main window
+        #winTasks! = #winMain!.addChildWindow("Tasks", $00108800$, #sysgui!.getAvailableContext())
+        #winTasks!.addClass("winTasks fadeIn")
+
+        REM Create the FAB (floating action button) and the toolbar buttons
+        btnAddTaskFAB! = #winMain!.addButton("<html><dwc-icon pool='tabler' name='plus'></dwc-icon>")
+        btnAddTaskFAB!.addClass("btnAddTaskFAB")
+        btnAddTaskFAB!.setAttribute("theme", "primary")
+        btnAddTaskFAB!.setAttribute("expanse", "xs")
+        btnAddTaskFAB!.setCallback(BBjControl.ON_BUTTON_PUSH, #this!, "onAddTask")
+
+        REM Apply the user's preferences, then display the tasks and set the main window visible
+        #applyUserPreferences()
+        #displayTasks()
+        #winMain!.setVisible(1)
+    methodend
+
+    REM /**
+    REM  * Creates the winTitle window with the date and day labels.
+    REM  * @return BBjChildWindow   The BBjChildWindow that holds the title elements.
+    REM  */
+    method public BBjChildWindow createWinTitle()
+        winTitle! = #winMain!.addChildWindow("Title", $00108800$, #sysgui!.getAvailableContext())
+        winTitle!.addClass("winTitle")
+
+        labelDay! = winTitle!.addStaticText(date(0:"%Dl, %Ml %D"), $4000$)
+        labelDay!.addClass("labelDay")
+        labelDay!.setName("labelDay")
+        labelTaskSorting! = winTitle!.addStaticText(date(0:"%Dl, %Ml %D"), $4000$)
+        labelTaskSorting!.addClass("labelTaskSorting")
+        labelTaskSorting!.setName("labelTaskSorting")
+
+        methodret winTitle!
+    methodend
+
+    REM /**
+    REM  * Creates the toolbar window "winToolBar" with various buttons.
+    REM  * @return BBjChildWindow   The toolbar window, as a BBjChildWindow.
+    REM  */
+    method public BBjChildWindow createWinToolBar()
+        winToolBar! = #winMain!.addChildWindow("ToolBar", $00108800$, #sysgui!.getAvailableContext())
+        winToolBar!.addClass("winToolBar")
+        
+        REM Exercise: ICON POOLS 
+        REM Replace Text labels with Tabler Icons
+        btnAddTask! = winToolBar!.addButton("New Task")
+        btnAddTask!.addClass("toolbarIcon")
+
+        btnAddTask!.setAttribute("expanse", "s")
+        btnAddTask!.setCallback(BBjControl.ON_BUTTON_PUSH, #this!, "onAddTask")
+
+        btnShowCompletedTasks! = winToolBar!.addButton("Show Completed Tasks")
+        btnShowCompletedTasks!.addClass("toolbarIcon icon-completed")
+
+        btnShowCompletedTasks!.setAttribute("expanse", "s")
+        btnShowCompletedTasks!.setCallback(BBjControl.ON_BUTTON_PUSH, #this!, "onShowCompletedTasks")
+
+        btnSettings! = winToolBar!.addButton("Settings")
+        btnSettings!.addClass("toolbarIcon")
+
+        btnSettings!.setAttribute("expanse", "s")
+        btnSettings!.setCallback(BBjControl.ON_BUTTON_PUSH, #this!, "onShowSettings")
+
+        btnImport! = winToolBar!.addButton("Upload Tasks")
+        btnImport!.addClass("toolbarIcon")
+
+        btnImport!.setAttribute("expanse", "s")
+        btnImport!.setCallback(BBjControl.ON_BUTTON_PUSH,#this!,"onImportFromFile")
+
+        btnExport! = winToolBar!.addButton("Download Tasks")
+        btnExport!.addClass("toolbarIcon")
+
+        btnExport!.setAttribute("expanse", "s")
+        btnExport!.setCallback(BBjControl.ON_BUTTON_PUSH,#this!,"onExportToFile")
+
+        btnReload! = winToolBar!.addButton("Reload")
+        btnReload!.addClass("toolbarIcon iconReload")
+
+        btnReload!.setAttribute("expanse", "s")
+        btnReload!.setCallback(BBjControl.ON_BUTTON_PUSH, #this!, "onReload")
+
+        REM Set tooltips for the buttons based on the user's preference
+        if (#hashPrefs!.get("prefsTaskTips") = "1") then
+            btnAddTask!.setToolTipText("Add Task")
+            btnShowCompletedTasks!.setToolTipText("Completed Tasks")
+            btnSettings!.setToolTipText("Settings")
+            btnExport!.setToolTipText("Export tasks")
+            btnImport!.setToolTipText("Import tasks")
+            btnReload!.setToolTipText("Reload Application")
+        endif
+
+        methodret winToolBar!
+    methodend
+
+    REM /**
+    REM  * Add a child window to the main window for each task
+    REM  * This will eventually need to be a full-blown task manager, probably
+    REM  */
+    method public void displayTasks()
+        declare auto Task task!
+
+        REM Get a sorted TreeMap of the tasks
+        #winTitle!.getControl("labelTaskSorting").setText("<html><span class='labelSortingIndicator'>" + str(#tasks!.size()) + " Tasks Sorted by Priority")
+        orderedTasks! = #getSortedTasks("priority")
+        it! = orderedTasks!.values().iterator()
+
+        while it!.hasNext()
+            task! = it!.next()
+            if (task!.getComplete() = 0) then
+                view! = #addTaskView(task!)
+            endif
+        wend
+    methodend
+
+    REM /**
+    REM  * Returns a sorted TreeMap that's similar to the #tasks! TreeMap, except
+    REM  * that its key is the priority+dueDate+Uuid (when sorted by priority),
+    REM  * or dueDate+priority+Uuid (when sorted by date).  We're concatenating
+    REM  * the three fields and letting the TreeMap object sort the tasks for us
+    REM  * based on the constructed key.  This new TreeMap still contains the task
+    REM  * objects in the value, so it can be used to fill the task view in a
+    REM  * sorted manner. Default sorting type is by priority.
+    REM  *
+    REM  * @param BBjString sortType!       The desired sorting type for the returned TreeMap.  Values can be "priority" or "date"
+    REM  * @return TreeMap                  A TreeMap where the values are the tasks objects and the key is based on the sorting type
+    REM  */
+    method public TreeMap getSortedTasks(BBjString sortType!)
+        sortedTasks! = new TreeMap()
+
+        it! = #tasks!.keySet().iterator()
+        while it!.hasNext()
+            uuid! = it!.next()
+            task! = #tasks!.get(uuid!)
+
+            priority! = task!.getPriority()
+            dueDate! = task!.getDueDate()
+
+            if (dueDate! > -1) then
+                taskDate! = date(dueDate!:"%Yl-%Mz-%Dz")
+            else
+                taskDate! = "none"
+            endif
+
+            REM This determines the sort order, which is based on the provide parameter
+            if (sortType!.toLowerCase().trim().contains("date")) then
+                REM Sort by the task's due date
+                REM The TreeMap's key will be composed of the date, then the priority, then the UUID
+                key! = taskDate! + str(priority!) + uuid!
+            else
+                REM Sort by the task's priority
+                REM The TreeMap's key will be composed of the priority, then the date, then the UUID
+                key! = str(priority!) + taskDate! + uuid!
+            endif
+
+            sortedTasks!.put(key!, task!)
+        wend
+        methodret sortedTasks!
+    methodend
+
+    REM /**
+    REM  * Adds a TaskView for the given Task, and returns the TaskView
+    REM  *
+    REM  * @param Task t!       Task that will be used to create the TaskView
+    REM  * @return TaskView     The view control for the given task
+    REM  */
+    method public TaskView addTaskView(Task task!)
+        uuid! = task!.getUuid()
+        view! = #taskViews!.get(uuid!)
+        if (view! <> null()) then
+            #taskViews!.remove(uuid!)
+            view!.getWin().destroy()
+        endif
+        view! = new TaskView(#winTasks!, task!)
+
+        #taskViews!.put(uuid!, view!)
+        view!.getWin().setCallback(BBjControl.ON_CLICK, #this!, "onTaskClick")
+        methodret view!
+    methodend
+
+    REM /**
+    REM  * Open an edit window to edit or create a new task
+    REM  *
+    REM  * @param event!    A BBjClickEvent
+    REM  */
+    method public void onTaskClick(BBjClickEvent event!)
+        declare auto Task t!
+        if (#taskProperties! = null()) then
+            #taskProperties! = new TaskProperties()
+        endif
+        t! = #tasks!.get(event!.getControl().getAttribute("id"))
+        #taskProperties!.loadTask(t!)
+    methodend
+
+    REM /**
+    REM  * Creates sample tasks to use for a demo
+    REM  *
+    REM  * @param BBjNumber numTasks! The number of sample tasks to create
+    REM  */
+    method public void createSampleTasks(BBjNumber numTasks!)
+        declare auto BBjString  taskName!
+        declare auto Task       task!
+        
+        task! = new Task()
+        task!.setTitle("Click the + button at the top or bottom of the screen to create a new task!")
+        task!.setDescription("Click on a task to edit it. You can also adjust the priority by right-clicking the priority flag!")
+        #addTask(task!)
+        
+        task! = new Task()
+        task!.setTitle("Change views by clicking LIST VIEW or CARD VIEW")
+        task!.setDescription("View completed tasks by clicking the checkmark icon in the toolbar.")
+        #addTask(task!)
+        
+        for i = 0 to numTasks! - 1
+            taskName! = "Task " + str(i)
+            task! = new Task()
+            task!.setTitle(taskName!)
+            if (mod(i,2) = 0) then
+                REM Set due date for even-numbered tasks
+                task!.setDueDate(jul(date(0)))
+            endif
+            #addTask(task!)
+        next i
+    methodend
+
+    REM /**
+    REM  * Adds a Task to the tasklist (the app's collection of Task objects)
+    REM  *
+    REM  * @param Task task!    The Task object
+    REM  */
+    method public void addTask(Task task!)
+        uuid! = task!.getUuid()
+        #tasks!.put(uuid!, task!)
+    methodend
+
+    REM /**
+    REM  * Returns the Task with the given UUID from the TreeMap of tasks.
+    REM  *
+    REM  * @param BBjString uuid!   The UUID of the task to be retrieved.
+    REM  * @return Task             The task from the TreeMap of tasks with the given UUID
+    REM  */
+    method public Task getTask(BBjString uuid!)
+        methodret cast(Task, #tasks!.get(uuid!))
+    methodend
+
+
+    REM /**
+    REM  * Toggles the layout type for the tasks, alternating betweeen a list (default) and card layout
+    REM  *
+    REM  * @param BBjWebEvent event!    The BBjWebEvent object that triggered this method
+    REM  */
+    method public void OnChangeLayout(BBjWebEvent event!)
+        REM Get the chosen layout type, which is either "list" or "card", and save it to the preferences
+        layout! = event!.getEventMap().get("value").toString()
+        #hashPrefs!.put("prefsTaskView", layout!)
+        Utils.setCookies(#appName!, #hashPrefs!, err=*NEXT)
+        #winTasks!.removeClass("listView cardView")
+        #winTasks!.addClass(layout!+"View")
+    methodend
+
+    REM /**
+    REM  * This method handles any UI or data updates that may be necessary when a Task is modified.
+    REM  * Activated by custom event TASK_UPDATE
+    REM  *
+    REM  * @param BBjCustomEvent event! A BBjCustomEvent that has a Task Object as a payload.
+    REM  */
+    method public void onTaskUpdate(BBjCustomEvent event!)
+        declare auto TaskView view!
+        declare auto Task t!
+        task! = event!.getObject()
+        uuid! = task!.getUuid()
+
+        REM If the UUID is not present in #tasks!, this is a new Task to be added.
+        if (#tasks!.containsKey(uuid!) = 0) then
+            #addTask(task!)
+        else
+            view! = #taskViews!.get(uuid!)
+            if (view! <> null()) then view!.refresh()
+        endif
+
+        if (task!.getDeleted()) then
+            #removeTask(task!)
+        endif
+
+        #displayTasks()
+
+        REM Automatically export the tasks every time a task is updated so that we never lose data
+        #exportTasks()
+    methodend
+
+    REM /**
+    REM  * Activated by custom event SETTINGS_UPDATE
+    REM  * This method handles any UI or data updates that may be necessary when the user's preferences are modified.
+    REM  *
+    REM  * @param BBjCustomEvent event! A BBjCustomEvent that has the updated preferences HashMap as a payload.
+    REM  */
+    method public void onSettingsUpdate(BBjCustomEvent event!)
+        #hashPrefs! = cast(HashMap, event!.getObject())
+        #applyUserPreferences()
+    methodend
+
+
+    REM /**
+    REM  * Sets the field variables from the preferences HashMap and applies them to the user interface.
+    REM  *
+    REM  * @param BBjCustomEvent event! A BBjCustomEvent that has the updated preferences HashMap as a payload.
+    REM  */
+    method public void applyUserPreferences()
+        #webManager!.setTheme(#hashPrefs!.get("prefsTaskTheme").toString(), err=*NEXT)
+        #setCssProperty("--app-color-h", #hashPrefs!.get("prefsTaskHue").toString())
+        #setCssProperty("--app-font-family-task", #hashPrefs!.get("prefsTaskFontFamily").toString())
+        #setCssProperty("--app-font-weight-task", #hashPrefs!.get("prefsTaskFontWeight").toString())
+        #setCssProperty("--app-font-size-task", #hashPrefs!.get("prefsTaskFontSize").toString())
+        #setCssProperty("--app-font-spacing-task", #hashPrefs!.get("prefsTaskFontSpacing").toString())
+
+        viewPrefs! = #hashPrefs!.get("prefsTaskView").toString()
+        #winTasks!.addClass(viewPrefs! + "View")
+
+        REM Ensure the preferred font works if it's a Google font
+        fontFamilyLink! = "https://fonts.googleapis.com/css2?family=" + #hashPrefs!.get("prefsTaskFontFamily").toString() + "&display=swap"
+        #webManager!.injectLinkUrl(fontFamilyLink!, 0, "rel=stylesheet")
+
+        REM Save out the user's preferences in a cookie
+        Utils.setCookies(#appName!, #hashPrefs!, err=*NEXT)
+    methodend
+
+    REM /**
+    REM  * Removes all Tasks from the tasklist
+    REM  */
+    method public void removeAllTasks()
+        it! = #tasks!.keySet().iterator()
+        while it!.hasNext()
+            uuid! = it!.next()
+            #taskViews!.remove(uuid!)
+        wend
+        #tasks!.clear()
+        Utils.consoleLog("Removed all tasks from the #tasks! collection")
+    methodend
+
+    REM /**
+    REM  * Removes a Task from the tasklist by specifying the tasks's ID
+    REM  *
+    REM  * @param BBjString uuid!        The task's unique ID
+    REM  */
+    method public void removeTask(BBjString uuid!)
+        #tasks!.remove(uuid!)
+        #taskViews!.remove(uuid!)
+    methodend
+
+    REM /**
+    REM  * Removes a Task from the task list by specifying the tasks object
+    REM  *
+    REM  * @param Task task!    The Task object
+    REM  */
+    method public void removeTask(Task task!)
+        #removeTask(task!.getUuid())
+    methodend
+
+    REM /**
+    REM  * Displays the app's settings window
+    REM  *
+    REM  * @param BBjButtonPushEvent event! The BBjButtonPushEvent that causes this method to be executed
+    REM  */
+    method public void onShowSettings(BBjButtonPushEvent event!)
+        REM If we haven't yet instantiated the Settings class, do so now.
+        REM Otherwise, we'll reuse the one that we used previously to make it display faster.
+        if (#settings! = null()) then
+            #settings! = new Settings()
+        endif
+
+        REM Show the settings window and pass along our HashMap with the user's preferences
+        #settings!.onShowSettings(#hashPrefs!)
+    methodend
+
+    REM /**
+    REM  * Reloads the application at the push of a button, which is typically only useful in development mode
+    REM  * <p>
+    REM  * The code creates a BBjBuiUrlCloseAction object to load the app's URL.  That way, the app can
+    REM  * do a RELEASE which causes the same app to be loaded and executed again.
+    REM  *
+    REM  * @param BBjButtonPushEvent event! The BBjButtonPushEvent that causes this method to be executed
+    REM  */
+    method public void onReload(BBjButtonPushEvent event!)
+        action! = #webManager!.urlAction(#webManager!.getUrl())
+        #webManager!.setEndAction(action!)
+        release
+    methodend
+
+    REM /**
+    REM  * Adds a new Task object by
+    REM  *  - creating a new Task object
+    REM  *  - displaying the Task's property sheet to the user for customization
+    REM  *
+    REM  * @param BBjButtonPushEvent event! The BBjButtonPushEvent that causes this method to be executed
+    REM  */
+    method public void onAddTask(BBjButtonPushEvent event!)
+        REM create a new task
+        task! = new Task()
+        REM open the edit window on that task
+        if (#taskProperties! = null()) then
+            #taskProperties! = new TaskProperties()
+        endif
+        #taskProperties!.loadTask(task!)
+    methodend
+
+    REM /**
+    REM  * Toggles showCompletedTasks on #winTasks! and btnShowCompletedTasks!
+    REM  * @param BBjButtonPushEvent event! The BBjButtonPushEvent that causes this method to be executed
+    REM  */
+    method public void onShowCompletedTasks(BBjButtonPushEvent event!)
+        btnShowCompletedTasks! = event!.getControl()
+        btnShowCompletedTasks!.toggleClass("showCompletedTasks")
+        #winTasks!.toggleClass("showCompletedTasks")
+    methodend
+
+    REM /**
+    REM  * Utility method that sets a CSS custom property given the property and value.
+    REM  * It ensures that the CSS property is properly formatted, then builds a CSS
+    REM  * string from the iformation and adds it to the DOM, thus overriding any
+    REM  * previous setting
+    REM  *
+    REM  * @param BBjString property!   The property name to be set
+    REM  * @param BBjString value!      The value to set the property to
+    REM  */
+    method public void setCssProperty(BBjString property!, BBjString value!)
+        REM Exercise: Use this method to set CSS Custom Properties
+        REM Create a CSS String to inject as a style:
+        REM :root { property: value; }
+        REM Inject with #webManager!.injectStyle()
+        REM BONUS EXERCISE: Sanitize your property and value strings to ensure correct CSS
+        REM - What happens if the value is a font with spaces in the same, such as Ubuntu Mono?  
+    methodend
+
+
+    REM /**
+    REM  * Returns the collection of Task objects in a JsonArray.  This is used to
+    REM  * serialize the tasks so that they can be exported, shared with another app,
+    REM  * or saved to disk.
+    REM  *
+    REM  * @return JsonArray     The tasks collection as a JsonArray
+    REM  */
+    method protected JsonArray getTasksAsJsonArray()
+        declare JsonArray array!
+        declare auto BBjString uuid!
+        declare auto Task task!
+
+        array! = new JsonArray()
+        it! = #tasks!.keySet().iterator()
+        while it!.hasNext()
+            uuid! = it!.next()
+            task! = #tasks!.get(uuid!)
+            array!.add(task!.getAsJsonObject())
+        wend
+        methodret array!
+    methodend
+
+    REM /**
+    REM  * Exports tasks to the client browser's storage
+    REM  */
+    method public void exportTasks()
+        json! = #getTasksAsJsonArray()
+        gson! = new GsonBuilder().setPrettyPrinting().create()
+
+        REM Write the tasks out to the client browser's storage
+        jsonString! = gson!.toJson(json!).toString()
+        #thinClient!.setUserProperty(BBjThinClient.USER_PROPERTIES_STORAGE, #appName!, jsonString!)
+
+        Utils.consoleLog("Exported " + str(#tasks!.size()) + " tasks to the client browser's storage")
+    methodend
+
+    REM /**
+    REM  * Callback method that exports the tasks to a JSON file on the client.  Since
+    REM  * this app is running in the browser, the file will be saved in the user's
+    REM  * browser's download directory.
+    REM  *
+    REM  * @param BBjButtonPushEvent event! The BBjButtonPushEvent that called this method
+    REM  */
+    method public void onExportToFile(BBjButtonPushEvent event!)
+        declare auto BBjClientFileSystem clientFileSystem!
+        declare auto BBjClientFile clientFile!
+        declare auto File serverFile!
+        declare auto BBjString serverFilePath!
+
+        REM Get the tasks as a JSON array string
+        json! = #getTasksAsJsonArray()
+        gson! = new GsonBuilder().setPrettyPrinting().create()
+        jsonString! = gson!.toJson(json!).toString()
+
+        REM Write out the JSON to a file on the server
+        serverFile! = File.createTempFile("DWCTaskApp.tasks", ".json")
+        serverFile!.deleteOnExit()
+        serverFilePath! = serverFile!.getCanonicalPath()
+        chan = unt
+        open(chan,MODE="O_TRUNC,O_CREATE") serverFilePath!
+            print(chan) jsonString!
+        close(chan)
+
+        REM Download the server file to the client
+        clientFileSystem! = #thinClient!.getClientFileSystem()
+        clientFile! = clientFileSystem!.getClientFile("DWCTaskApp.tasks.json")
+        clientFile!.copyToClient(serverFilePath!)
+        erase serverFilePath!
+
+        msg! = "<html><h3>Exported your tasks successfully!</h3>"
+        msg! = msg! + "<p>Your tasks have been downloaded to your browser's download directory "
+        msg! = msg! + "as a JSON file named:</p><p><code style='font-weight:bold'>DWCTaskApp.tasks.json</code>.</p></html>"
+        temp=msgbox(msg!, BBjSysGui.MSGBOX_ICON_INFORMATION, "Export Completed", mode="theme=success")
+    methodend
+
+
+    REM /**
+    REM  * Imports the tasks from a JSON file on the client.
+    REM  *
+    REM  * @param BBjButtonPushEvent event!     BBjButtonPushEvent that invoked this method.
+    REM  */
+    method public void onImportFromFile(BBjButtonPushEvent event!)
+        declare auto BBjClientFileSystem clientFileSystem!
+        declare auto BBjClientFile clientFile!
+
+        REM Get the saved tasks JSON file from the client
+        clientFileResult! = FILEOPEN("Import tasks from a previously-exported tasks file", dsk("")+dir(""),"","json","JSON Files (*.json)" +$0a$ + "*.json" + $0a$ + "All Files (*.*)" + $0a$ + "*.*", 0 ,MODE="CLIENT,EXISTS=1,STYLE=style",err=*NEXT)
+        if (clientFileResult! = "::BAD::") OR (clientFileResult! = "::CANCEL::") then methodret
+        clientFileSystem! = #thinClient!.getClientFileSystem()
+        clientFile! = clientFileSystem!.getClientFile(clientFileResult!)
+        serverFilePath! = clientFile!.copyFromClient()
+
+        REM Attempt to load tasks from the file that we got from the client
+        chan = unt
+        open(chan, isz=-1, err=ERR_MISSING_TASKS_FILE) serverFilePath!
+            read record(chan, siz=-1000000) json$
+        close(chan)
+        erase serverFilePath!
+        Utils.consoleLogValues("Read in task JSON from client file:", json$)
+
+        REM Parse the contents of the file
+        parser! = new JsonParser()
+        json! = parser!.parseString(json$)
+
+        REM Ensure that we got a JSON array of objects, if not then it's not a valid task export file
+        if !(json!.isJsonArray()) then
+            temp=msgbox("The uploaded JSON file did not contain an array of Tasks!", BBjSysGui.MSGBOX_ICON_STOP, "Invalid Task JSON File", mode="theme=danger")
+            methodret
+        endif
+
+        REM Get the array of tasks
+        gson! = new GsonBuilder().setPrettyPrinting().create()
+        array! = gson!.fromJson(json!, JsonArray.class)
+
+        REM From this point on, we have a valid array of tasks so we should remove the current tasks before importing the new ones
+        #removeAllTasks()
+
+        REM Add all the tasks from the imported array and then update the display
+        it! = array!.iterator()
+        while(it!.hasNext())
+            jsonTask! = it!.next()
+            t! = new Task(jsonTask!)
+            #addTask(t!)
+        wend
+
+        REM If we loaded the tasks from the server file, then call the export method to write them to browser storage
+        #exportTasks()
+        Utils.consoleLog("Loaded " + str(#tasks!.size()) + " tasks from imported client file")
+
+        REM For now, simply reload the app to show the updated list of tasks
+        action! = #webManager!.urlAction(#webManager!.getUrl())
+        #webManager!.setEndAction(action!)
+        release
+
+    ERR_MISSING_TASKS_FILE:
+    methodend
+
+
+    REM /**
+    REM  * Imports tasks from the client's browser storage
+    REM  */
+    method public void importTasks()
+        REM Read in the tasks from the client browser's storage
+        json$ = BBjAPI().getThinClient().getUserProperty(BBjThinClient.USER_PROPERTIES_STORAGE, #appName!, err=*NEXT)
+
+        REM If there weren't any tasks in user storage, attempt to load them from a file on the server
+        if (len(json$) = 0) then
+            chan = unt
+            f$ = #appPath! + "tasks.json"
+            open(chan, isz=-1, err=ERR_MISSING_TASKS_FILE) f$
+                read record(chan, siz=-1000000) json$
+            close(chan)
+            loadedTasksFromFile = 1
+        endif
+
+        parser! = new JsonParser()
+        json! = parser!.parseString(json$)
+
+        gson! = new GsonBuilder().setPrettyPrinting().create()
+        array! = gson!.fromJson(json!, JsonArray.class)
+        it! = array!.iterator()
+
+        while(it!.hasNext())
+            jsonTask! = it!.next()
+            t! = new Task(jsonTask!)
+            #addTask(t!)
+        wend
+
+        REM If we loaded the tasks from the server file, then call the export method to write them to browser storage
+        if (loadedTasksFromFile) then
+            #exportTasks()
+            Utils.consoleLog("Loaded " + str(#tasks!.size()) + " tasks from server file")
+        else
+            Utils.consoleLog("Loaded " + str(#tasks!.size()) + " tasks from browser storage")
+        endif
+
+        methodret
+
+        ERR_MISSING_TASKS_FILE:
+        REM If the tasks aren't present in browser storage or a server file, then we create sample tasks
+        #createSampleTasks(3)
+        Utils.consoleLog("created " + str(#tasks!.size()) + " sample tasks")
+        #exportTasks()
+    methodend
+
+classend
+
+
+REM BBj USE Statements
+use ::Task.bbj::Task
+use ::TaskProperties.bbj::TaskProperties
+use ::TaskView.bbj::TaskView
+use ::Settings.bbj::Settings
+use ::Utils.bbj::Utils
+
+REM Java USE Statements
+use java.util.TreeMap
+use java.util.HashMap
+use java.net.URLEncoder
+use java.net.URLDecoder
+use java.io.File
+
+REM Google's Gson for JSON, which is included with BBj
+use com.google.gson.Gson;           REM https://javadoc.io/static/com.google.code.gson/gson/2.10.1/com.google.gson/com/google/gson/Gson.html
+use com.google.gson.GsonBuilder;    REM https://javadoc.io/doc/com.google.code.gson/gson/latest/com.google.gson/com/google/gson/GsonBuilder.html
+use com.google.gson.JsonObject;     REM https://javadoc.io/static/com.google.code.gson/gson/2.10.1/com.google.gson/com/google/gson/JsonObject.html
+use com.google.gson.JsonArray;      REM https://javadoc.io/static/com.google.code.gson/gson/2.10.1/com.google.gson/com/google/gson/JsonArray.html
+use com.google.gson.JsonParser;     REM https://javadoc.io/static/com.google.code.gson/gson/2.10.1/com.google.gson/com/google/gson/JsonParser.html
