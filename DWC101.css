@@ -23,14 +23,41 @@
 
 .task {
     display: grid;
-    /* 
-    Exercise: Grid layout
-    Create a grid layout for your task views
-    grid-template-columns: <space separated list of sizes indicating number of columns>
-    grid-template-rows: <space separated list of sizes indicating number of rows>
-    Create style classes for the controls that are on the grid, and assign grid: and column: 
-    properties to place them in your grid.
-    */
+    grid-template-columns: auto auto max-content;
+    grid-template-rows: auto auto auto;
+    gap: 1em;
+    grid-template-areas: "title title flag" 
+                        "description description delete"
+                        "check . .";
+}
+
+.textTitle {
+    /* grid-row: 1;
+    grid-column: 1 / 3; */
+    grid-area: title;
+    text-wrap: wrap;
+}
+
+.textDescription {
+    /* grid-row: 2;
+    grid-column: 2; */
+    grid-area: description;
+}
+
+.priorityFlag {
+    grid-area: flag;
+}
+
+.btnDelete {
+    grid-area: delete;
+}
+
+.task dwc-checkbox {
+    grid-area: check;
+}
+
+.dueNotice {
+    justify-self: end;
 }
 
 
@@ -38,12 +65,19 @@
     /* ensure that you can scroll the window */
     overflow-y: scroll;
     height: 100%;
+    display: flex;
+    gap: 2em;
+    flex-wrap: wrap;
     /* 
     Exercise: Flex Layout
     Set the display: flex; property here
     Set flex flow rules, gap, etc.
     Set the flex property on the task windows
      */
+}
+
+.task {
+    flex: 0 1 30%;
 }
 
 .winTitle {
@@ -71,6 +105,10 @@ Exercise: background-color for winToolBar
 Flex display exercise: add flex and flex-flow and gap to winToolBar
  */
  .winToolBar {
+    display: flex;
+    flex-flow: row;
+    justify-content: flex-end;
+    gap: var(--dwc-space-xs);
 }
 
 
@@ -106,3 +144,7 @@ Bonus Exercise: Color of priority flags
 Each priority flag has a class indicating its priority. 
 Create CSS Style definitions to color the priority flags!
 */
+
+.shirt {
+    color: yellow;
+}

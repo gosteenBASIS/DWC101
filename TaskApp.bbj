@@ -71,7 +71,7 @@ class public TaskApp
         #loadPrefsFromCookie()
 
         REM Force the browser's background to change ASAP
-        #setCssProperty("--app-color-h", #hashPrefs!.get("prefsTaskHue").toString())
+        #setCssProperty("--app-color-h", "300")
 
         REM Change the "click to reload web application" message
         #webManager!.setEndAction(#webManager!.msgAction("Launch the TaskApp"))
@@ -108,6 +108,7 @@ class public TaskApp
 
         REM Register for a custom event that the user has  modified their preferences via the Settings dialog
         BBjAPI().setCustomEventCallback("SETTINGS_UPDATE",#this!,"onSettingsUpdate")
+        
     methodend
 
 
@@ -122,6 +123,8 @@ class public TaskApp
         REM Create the UI and display the tasks
         #sysgui! = BBjAPI().openSysGui("X0")
         #createMainWindow()
+        #setCssProperty("--dwc-color-primary-h","300")
+
         process_events
     methodend
     
@@ -249,13 +252,13 @@ class public TaskApp
         
         REM Exercise: ICON POOLS 
         REM Replace Text labels with Tabler Icons
-        btnAddTask! = winToolBar!.addButton("New Task")
+        btnAddTask! = winToolBar!.addButton("<html><dwc-icon pool='tabler' name='shirt' class='shirt'></dwc-icon>")
         btnAddTask!.addClass("toolbarIcon")
 
         btnAddTask!.setAttribute("expanse", "s")
         btnAddTask!.setCallback(BBjControl.ON_BUTTON_PUSH, #this!, "onAddTask")
 
-        btnShowCompletedTasks! = winToolBar!.addButton("Show Completed Tasks")
+        btnShowCompletedTasks! = winToolBar!.addButton("<html>Show Completed tasks<dwc-icon pool='tabler' name='lungs'></dwc-icon>")
         btnShowCompletedTasks!.addClass("toolbarIcon icon-completed")
 
         btnShowCompletedTasks!.setAttribute("expanse", "s")
@@ -632,6 +635,8 @@ class public TaskApp
         REM Create a CSS String to inject as a style:
         REM :root { property: value; }
         REM Inject with #webManager!.injectStyle()
+        css! = ":root { " + property! + ": " + value! + "; }"
+        #webManager!.injectStyle(css!,1,"taskapp_css")
         REM BONUS EXERCISE: Sanitize your property and value strings to ensure correct CSS
         REM - What happens if the value is a font with spaces in the same, such as Ubuntu Mono?  
     methodend
