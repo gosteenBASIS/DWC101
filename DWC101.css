@@ -4,6 +4,7 @@
     Exercise: Change DWC Custom Properties values
     Set the value of a DWC custom property here to affect the styling of your whole application
     */
+    --small-width: 500px;
 }
 
 /* Ensure that window content under .winMain takes up all available space */
@@ -78,6 +79,16 @@
 
 .task {
     flex: 0 1 30%;
+    transition: background-color 0.5s;
+}
+
+
+.task:nth-child(even) {
+    background-color: green;
+}
+
+.task:hover {
+    background-color: blue;
 }
 
 .winTitle {
@@ -122,11 +133,45 @@ Create a CSS style targeting that element, and change its background color */
 /* 
 Exercise: Media Queries
 Change some aspect of your CSS when the width is below/above a certain size
-
-@media (width <= value) {
-    <css here>
-}
 */
+@media (width < 600) {
+
+}
+
+@media (width <= 500px) {
+    .winToolBar {
+        flex-wrap: wrap;
+    }
+
+    .task {
+        flex-basis: 100%;
+        grid-template-columns: auto auto max-content;
+        grid-template-rows: auto auto;
+        gap: 1em;
+        grid-template-areas: "title title flag" 
+                            "check . delete";
+    }
+
+    .textDescription {
+        display: none;
+    }
+
+    .dueNotice {
+        display: none;
+    }
+
+    .winTitle {
+        font-size: var(--dwc-font-size-s);
+    }
+
+}
+
+@media (width > 1000px) {
+    .winTitle {
+        font-size: var(--dwc-font-size-xl);
+    }
+}
+
 
 /* 
 Exercise: Pseudo-Classes
@@ -147,4 +192,8 @@ Create CSS Style definitions to color the priority flags!
 
 .shirt {
     color: yellow;
+}
+
+dwc-checkbox::part(label) {
+    display: none;
 }
