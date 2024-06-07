@@ -1,0 +1,374 @@
+/* The CSS file that accompanies the TaskApp DWC application */
+
+/* The TaskApp's CSS custom properties              */
+/* ================================================ */
+:root {
+    --app-color-h: 15;
+    --app-color-s: 75%;
+    --app-color-b: 35%;
+    --app-color-primary: hsl(var(--app-color-h), var(--app-color-s), var(--app-color-b));
+    --app-color-window-bg: hsl(0, 0%, 95%);
+    --app-color-text-normal-l: 20%;
+    --app-color-text-light-l:  40%;
+    --app-color-text-faint-l:  60%;
+    --app-color-text-normal: hsl(0, 0%, var(--app-color-text-normal-l));
+    --app-color-text-light:  hsl(0, 0%, var(--app-color-text-light-l));
+    --app-color-text-faint:  hsl(0, 0%, var(--app-color-text-faint-l));
+    --app-font-family-task: var(--dwc-font-family);
+    --app-font-weight-task: var(--dwc-font-weight-bold);
+    --app-font-size-task: var(--dwc-font-size-m);
+    --app-font-spacing-task: normal;
+    --ion-color-primary: var(--app-color-primary);
+    --ion-text-color: var(--dwc-color-body-text);
+    --ion-text-color-rgb: var(--dwc-color-body-text);
+    --ion-font-family: var(--app-font-family);
+}
+
+
+
+/* Override the DWC's default CSS custom properties */
+/* ================================================ */
+:root {
+    --dwc-font-family: 'Gabarito', 'K2D', 'Overlock', 'Encode Sans Semicondensed', 'Aller', 'Alatsi', 'Akrobat', var(--dwc-font-family-sans);
+    --dwc-color-body-text: var(--app-color-text-normal);
+    --dwc-color-primary-h: var(--app-color-h);
+    --dwc-color-default-h: var(--app-color-h);
+    --dwc-color-default-s: 25%;
+    --dwc-list-padding: calc(var(--dwc-space) / 2);
+    --dwc-color-chooser-slider-height: 2.5em;
+    --dwc-color-chooser-pointer-size: 3em;
+    --dwc-choicebox-button-height: 2.35em;
+    --dwc-combobox-field-height: var(--dwc-choicebox-button-height);
+    --dwc-overlay-background: hsla(var(--app-color-h), 20%, 20%, 0.8);
+    --dwc-dialog-modal-background: hsla(var(--app-color-h), 20%, 20%, 0.8);
+}
+
+
+/* Dark mode specific CSS custom properties         */
+/* ================================================ */
+[data-app-theme="dark"] {
+    --app-color-b: 65%;
+    --app-color-text-normal-l: 90%;
+    --app-color-text-light-l:  70%;
+    --app-color-text-faint-l:  60%;
+
+    --dwc-overlay-background: hsla(var(--app-color-h), 20%, 20%, 0.8);
+    --dwc-dialog-modal-background: hsla(var(--app-color-h), 20%, 20%, 0.8);
+
+    .winToolBar {
+        background: hsl(var(--app-color-h), 25%, 20%);
+    }
+}
+
+
+/* Global definitions for multiple controls         */
+/* ================================================ */
+
+/* Modify the entire DOM */
+html, body, dwc-frame-manager {
+    background-color: var(--app-color-primary);
+    padding: 0;
+    margin: 0;
+    width: 100dvw;
+    height: 100dvh;
+    display: flex;
+}
+
+/* Modify ALL BBjButtons by setting their color and font size & weight */
+dwc-button::part(label) {
+    font-size: var(--dwc-font-size-l);
+    font-weight: var(--dwc-font-weight-semibold);
+}
+
+/* Set a larger minimum width for the message box buttons */
+dwc-dialog footer dwc-button {
+    min-width: 5em;
+}
+
+ /* Make the checkboxes zoom into 100% size on load */
+dwc-checkbox:not(hydrated) {
+    transform: scale3d(0,0,0);
+    transition: all 500ms ease;
+    transition-delay: 200ms;
+}
+dwc-checkbox.hydrated {
+    transform: scale3d(1,1,1);
+    padding-left: 1px;
+}
+
+
+
+/* Layout                                           */
+/* ================================================ */
+
+/* Centers dialogs */
+dwc-frame {
+    margin: auto;
+}
+
+dwc-panel {
+    width: 100%;
+    height: 100%;
+}
+
+.winMain {
+    display: flex;
+    max-height: 100dvh;
+}
+
+.winMain dwc-window-content {
+    display: grid;
+    width: 100dvw;
+    height: 100dvh;
+    grid-template-areas: 'winToolBar' 'winTitle' 'winTasks';
+    grid-template-columns: 1fr;
+    grid-template-rows: 3em 10em 1fr;
+}
+
+.winToolBar, .winTitle, .winTasks {
+    margin: 0 auto;
+    width: 100%;
+    padding-left: 5%;
+    padding-right: 5%;
+}
+
+.winToolBar {
+    grid-area: winToolBar;
+    max-width: 100%;
+    display: flex;
+    flex-flow: row;
+    align-items: center;
+    padding: var(--dwc-space-xs) var(--dwc-space);
+    gap: var(--dwc-space) var(--dwc-space);
+    background: hsl(var(--app-color-h), 25%, 90%);
+    width: 100%;
+    justify-content: end;
+}
+
+.winTitle {
+    grid-area: winTitle;
+    display: flex;
+    flex-flow: column;
+    align-items: stretch;
+    justify-content: center;
+}
+
+.winTasks {
+    grid-area: winTasks;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-flow: row;
+    padding-top: 2em;
+    padding-bottom: 0.5em;
+}
+
+
+/* Task Property Sheet Styling                      */
+/* ================================================ */
+dwc-frame.winTaskPropertiesContainer {
+    /* Increased the selector specificity to override the DWC's dwc-frame flow layout properties */
+    max-height: 90dvh;
+    overflow: auto;
+    max-width: min(30em, 90dvw);
+}
+
+.winTaskProperties dwc-window-content {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: space-between;
+    padding: var(--dwc-space-l);
+    gap: var(--dwc-space-m);
+}
+
+.winTaskProperties dwc-window-content > * {
+    width: 100%;
+}
+
+.winTaskProperties dwc-window-content dwc-dropdown .winTaskProperties dwc-window-content dwc-datefield {
+    flex: 1 1 auto;
+    min-width: 10em;
+    width: auto;
+}
+.winTaskProperties dwc-window-content dwc-button {
+    flex: 1 1 30%;
+    min-width: 10em;
+    width: auto;
+}
+.winTaskProperties dwc-window-content dwc-button:last-child {
+    width: 100%;
+}
+
+/* Items that are clickable, and hovered over       */
+/* ================================================ */
+.clickable:hover {
+    /* filter: brightness(80%); */
+    background: var(--dwc-surface-1);
+    transition: all 200ms ease;
+}
+
+
+/* Day and Date headers for TaskList window         */
+/* ================================================ */
+.labelDay {
+    font-size: 1.5em;
+    font-weight:  var(--dwc-font-weight-bold);
+}
+
+.labelTaskSorting {
+    font-size: 1.1em;
+    font-weight: var(--dwc-font-weight-semibold);
+}
+.labelSortingIndicator {
+    color: var(--app-color-text-light);
+    font-size: 0.80em;
+    font-weight: normal;
+}
+
+
+
+/* Glasspane for modal dialog windows               */
+/* ================================================ */
+dwc-dialog-glass-pane {
+    --dwc-overlay-background: hsla(var(--app-color-h), 20%, 20%, 0.8);
+    background: var(--dwc-overlay-background);
+    max-width: 200dvw;
+    max-height: 200dvh;
+}
+
+
+
+/*  Toolbar Icons                                   */
+/* ================================================ */
+.toolbarIcon {
+    height: 100%;
+}
+.toolbarIcon::part(control), .toolbarIcon::part(control)::before {
+    background: transparent;
+    color: var(--app-color-text-faint);
+    transition: all 100ms ease;
+    border-color: transparent;
+    border-radius: 0.5em;
+}
+.toolbarIcon::part(control):hover, .toolbarIcon::part(control):hover::before {
+    border-color: transparent;
+    color: var(--app-color-text-normal);
+}
+
+/* The reload toolbar icon is special and has a unique hover effect */
+.iconReload.toolbarIcon::part(control) {
+    color: var(--dwc-color-danger);
+    opacity: 0.75;
+    transition: all 0.1s ease-in-out;
+}
+.iconReload.toolbarIcon::part(control):hover {
+    opacity: 1.0;
+    background: var(--dwc-color-danger);
+    color: var(--dwc-color-white);
+}
+
+.showCompletedTasks dwc-icon {
+    opacity: 1.0;
+    color: green;
+}
+
+
+
+/* FAB (Floating Action Button) to add a task       */
+/* ================================================ */
+.btnAddTaskFAB {
+    position: absolute;
+    right: 3em;
+    bottom: 1.5em;
+    z-index: 1000;
+    width: 5em;
+    height: 5em;
+}
+.btnAddTaskFAB::part(control) {
+    border-radius: 100em;
+    box-shadow: 0 0.1em 0.5em hsla(0, 0%, 0%, 0.35);
+}
+.btnAddTaskFAB dwc-icon {
+    transform: scale3d(2, 2, 2);
+}
+.winMain.iOS .btnAddTaskFAB {
+    right: 2em;
+    bottom: 2em;
+}
+
+
+/* Animations                                       */
+/* ================================================ */
+.fadeIn {
+    animation: fadeIn 350ms ease-in-out 1 forwards;
+}
+.zoomIn {
+    animation: zoomIn 400ms ease-in-out 1 forwards;
+}
+.bounceIn {
+    animation: bounceIn 2500ms ease-in-out 1 forwards;
+}
+.pulse {
+    animation: bounceIn 2500ms ease-in-out 1 forwards;
+}
+
+@keyframes zoomIn {
+    from {
+        transform: scale3d(0, 0, 0);
+    }
+    to {
+        transform: scale3d(1, 1, 1);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes bounceIn {
+    from,
+    20%,
+    40%,
+    60%,
+    80%,
+    to {
+      animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+    }
+    0% {
+      transform: scale3d(0, 0, 0);
+    }
+    20% {
+        transform: scale3d(1.2, 1.2, 1.2);
+    }
+    40% {
+        transform: scale3d(0.8, 0.8, 0.8);
+    }
+    60% {
+        transform: scale3d(1.07, 1.07, 1.07);
+    }
+    80% {
+        transform: scale3d(0.9, 0.9, 0.9);
+    }
+    to {
+        transform: scale3d(1, 1, 1);
+    }
+}
+
+@keyframes pulse {
+    from {
+        transform: scale3d(1, 1, 1);
+    }
+    50% {
+        transform: scale3d(1.1, 1.1, 1.1);
+    }
+    to {
+        transform: scale3d(1, 1, 1);
+    }
+}

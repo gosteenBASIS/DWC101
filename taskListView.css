@@ -1,0 +1,72 @@
+/* Task Styling                                     */
+/* ================================================ */
+
+/* The parent window for tasks in the listView */
+.listView {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+/* The windows for the tasks in the listview */
+.listView dwc-panel {
+    flex: 0 0 auto;
+	display: grid;
+	grid-template-columns: 1.8em 1fr auto;
+    grid-template-rows: auto 2em;
+	grid-column-gap: 0.25em;
+    height: fit-content;
+    justify-items: start;
+    border: transparent;
+    border-bottom-color: var(--dwc-color-gray-80);
+    padding: 0.5em 0;
+    transition: all 250ms ease;
+}
+
+.listView dwc-checkbox {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.listView .dueNotice {
+    grid-row: 1;
+    grid-column: 3;
+    justify-self: right;
+    white-space: nowrap;
+    text-overflow: clip;
+    padding-right: 0.2em;
+}
+
+/* Title styling on task-list-view */
+.listView .textTitle {
+    height: auto;
+    text-wrap: wrap;
+}
+
+/* Description styling on task-list-view */
+.listView .textDescription {
+    align-self: start;
+    grid-column: 2 / 2;
+}
+
+.listView .priorityFlag {
+    justify-self: right;
+    align-self: start;
+    grid-column: 3 / 3;
+    grid-row: 2;
+}
+
+/* Hide the label part of the checkbox */
+.listView dwc-checkbox::part(label) {
+    display: none;
+}
+
+/* Hide the delete button */
+.listView .btnDelete {
+    display: none;
+}
+
+@media (width <= 500px) {
+	.listView .dueNotice {
+        display: none;
+    }
+}

@@ -33,6 +33,7 @@ class public TaskApp
     field protected BBjChildWindow      winToolBar!
     field protected BBjChildWindow      winTitle!
     field protected BBjChildWindow      winTasks!
+    field protected BBjWebComponent     segmentChangeView!
 
     REM /** The Settings class that shows the settings window for the application */
     field protected Settings            settings!
@@ -63,9 +64,11 @@ class public TaskApp
 
         REM Instatiate the WebManager and use it to inject the app's CSS
         #webManager! = BBjAPI().getWebManager()
-        
-        REM Exercise 1: Modify injectCSSFile method, and Inject CSS Files here
-        #injectCSSFile("DWC101.css")
+        #injectCSSFile("TaskApp.css")
+        #injectCSSFile("taskView.css")
+        #injectCSSFile("taskListView.css")
+        #injectCSSFile("taskCardView.css")
+        #injectCSSFile("Settings.css")
 
         #initHashPrefs()
         #loadPrefsFromCookie()
@@ -93,6 +96,13 @@ class public TaskApp
         #webManager!.injectLinkUrl(url!, 1, "rel=SHORTCUT ICON,type=image/png")
         #webManager!.injectLinkUrl(url!, 1, "rel=apple-touch-icon,type=image/png")
         #webManager!.injectLinkUrl(url!, 1, "rel=icon,type=image/png")
+
+        REM Inject links for Ionic Web Components
+        url! = "https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.esm.js"
+        #webManager!.injectScriptUrl(url!,1,"type=module")
+
+        url! = "https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.js"
+        #webManager!.injectScriptUrl(url!,1,"type=module")
 
         REM Create the collection for the tasks
         #tasks! = new TreeMap()
@@ -123,29 +133,6 @@ class public TaskApp
         #sysgui! = BBjAPI().openSysGui("X0")
         #createMainWindow()
         process_events
-    methodend
-    
-    REM /**
-    REM  * Injects the CSS file given from the fileName! into the webManager.
-    REM  * Depends on the definitions of #appPath! and #webManager!
-    REM  * Sets the name of the CSS file to taskapp_filename_css.
-    REM  *
-    REM  * @param BBjString fileName!  The name of the CSS file
-    REM  */
-    method public void injectCSSFile(BBjString fileName!)
-        REM Exercise 1:
-        REM Open the file by combining with the #appPath! variable
-        REM https://documentation.basis.cloud/BASISHelp/WebHelp/commands/open_verb.htm
-        REM READ RECORD into a string variable
-        REM https://documentation.basis.cloud/BASISHelp/WebHelp/commands/read_verb.htm
-        REM Use #webManager!.injectStyle 
-        REM https://documentation.basis.cloud/BASISHelp/WebHelp/bui/BBjBuiManager/BBjBuiManager_injectStyle.htm
-        chan = unt
-        open(chan,isz=-1) #appPath!+fileName!
-        read record(chan,siz=1000000) css$
-        close(chan)
-
-        #webManager!.injectStyle(css$, 1, "name=taskapp_"+fileName!.toLowerCase().replace(".","_"))
     methodend
     
     REM /**
@@ -236,6 +223,30 @@ class public TaskApp
         labelTaskSorting!.addClass("labelTaskSorting")
         labelTaskSorting!.setName("labelTaskSorting")
 
+        REM Create the segment control
+        #segmentChangeView! = cast(BBjWebComponent, winTitle!.addWebComponent("ion-segment"))
+        #segmentChangeView!.setAttribute("value","list")
+        #segmentChangeView!.setAttribute("mode","md")
+
+        REM Create the segment control buttons
+        segmentCardView! = winTitle!.addWebComponent("ion-segment-button")
+        segmentCardView!.setAttribute("value","card")
+        segmentCardView!.setHtml("Card View")
+
+        segmentListView! = winTitle!.addWebComponent("ion-segment-button")
+        segmentListView!.setAttribute("value","list")
+        segmentListView!.setHtml("List View")
+
+        REM Add the segment buttons to the segment control slots
+        #segmentChangeView!.setSlot(segmentListView!)
+        #segmentChangeView!.setSlot(segmentCardView!)
+        
+        REM create eventOptions object so we can get the right information from the Web Component Event
+        eventOptions! = #segmentChangeView!.newEventOptions()
+        eventOptions!.addItem("value","event.target.value")
+
+        #segmentChangeView!.setCallback("ionChange", #this!, "OnChangeLayout", eventOptions!)
+
         methodret winTitle!
     methodend
 
@@ -246,43 +257,41 @@ class public TaskApp
     method public BBjChildWindow createWinToolBar()
         winToolBar! = #winMain!.addChildWindow("ToolBar", $00108800$, #sysgui!.getAvailableContext())
         winToolBar!.addClass("winToolBar")
-        
-        REM Exercise: ICON POOLS 
-        REM Replace Text labels with Tabler Icons
-        btnAddTask! = winToolBar!.addButton("New Task")
+
+        btnAddTask! = winToolBar!.addButton("<html><dwc-icon pool='tabler' name='plus'></dwc-icon>")
         btnAddTask!.addClass("toolbarIcon")
 
-        btnAddTask!.setAttribute("expanse", "s")
+        btnAddTask!.setAttribute("expanse", "xs")
         btnAddTask!.setCallback(BBjControl.ON_BUTTON_PUSH, #this!, "onAddTask")
 
-        btnShowCompletedTasks! = winToolBar!.addButton("Show Completed Tasks")
+        btnShowCompletedTasks! = winToolBar!.addButton("<html><dwc-icon pool='tabler' name='checks'></dwc-icon>")
         btnShowCompletedTasks!.addClass("toolbarIcon icon-completed")
 
-        btnShowCompletedTasks!.setAttribute("expanse", "s")
+        btnShowCompletedTasks!.setAttribute("expanse", "xs")
         btnShowCompletedTasks!.setCallback(BBjControl.ON_BUTTON_PUSH, #this!, "onShowCompletedTasks")
 
-        btnSettings! = winToolBar!.addButton("Settings")
+        btnSettings! = winToolBar!.addButton("<html><dwc-icon pool='tabler' name='settings'></dwc-icon>")
         btnSettings!.addClass("toolbarIcon")
 
-        btnSettings!.setAttribute("expanse", "s")
+        btnSettings!.setAttribute("expanse", "xs")
         btnSettings!.setCallback(BBjControl.ON_BUTTON_PUSH, #this!, "onShowSettings")
 
-        btnImport! = winToolBar!.addButton("Upload Tasks")
+        btnImport! = winToolBar!.addButton("<html><dwc-icon pool='tabler' name='upload'></dwc-icon>")
         btnImport!.addClass("toolbarIcon")
 
-        btnImport!.setAttribute("expanse", "s")
+        btnImport!.setAttribute("expanse", "xs")
         btnImport!.setCallback(BBjControl.ON_BUTTON_PUSH,#this!,"onImportFromFile")
 
-        btnExport! = winToolBar!.addButton("Download Tasks")
+        btnExport! = winToolBar!.addButton("<html><dwc-icon pool='tabler' name='download'></dwc-icon>")
         btnExport!.addClass("toolbarIcon")
 
-        btnExport!.setAttribute("expanse", "s")
+        btnExport!.setAttribute("expanse", "xs")
         btnExport!.setCallback(BBjControl.ON_BUTTON_PUSH,#this!,"onExportToFile")
 
-        btnReload! = winToolBar!.addButton("Reload")
+        btnReload! = winToolBar!.addButton("<html><dwc-icon pool='tabler' name='reload'></dwc-icon>")
         btnReload!.addClass("toolbarIcon iconReload")
 
-        btnReload!.setAttribute("expanse", "s")
+        btnReload!.setAttribute("expanse", "xs")
         btnReload!.setCallback(BBjControl.ON_BUTTON_PUSH, #this!, "onReload")
 
         REM Set tooltips for the buttons based on the user's preference
@@ -520,6 +529,7 @@ class public TaskApp
 
         viewPrefs! = #hashPrefs!.get("prefsTaskView").toString()
         #winTasks!.addClass(viewPrefs! + "View")
+        #segmentChangeView!.setAttribute("value", viewPrefs!)
 
         REM Ensure the preferred font works if it's a Google font
         fontFamilyLink! = "https://fonts.googleapis.com/css2?family=" + #hashPrefs!.get("prefsTaskFontFamily").toString() + "&display=swap"
@@ -621,21 +631,39 @@ class public TaskApp
     REM /**
     REM  * Utility method that sets a CSS custom property given the property and value.
     REM  * It ensures that the CSS property is properly formatted, then builds a CSS
-    REM  * string from the iformation and adds it to the DOM, thus overriding any
+    REM  * string from the information and adds it to the DOM, thus overriding any
     REM  * previous setting
     REM  *
     REM  * @param BBjString property!   The property name to be set
     REM  * @param BBjString value!      The value to set the property to
     REM  */
     method public void setCssProperty(BBjString property!, BBjString value!)
-        REM Exercise: Use this method to set CSS Custom Properties
-        REM Create a CSS String to inject as a style:
-        REM :root { property: value; }
-        REM Inject with #webManager!.injectStyle()
-        REM BONUS EXERCISE: Sanitize your property and value strings to ensure correct CSS
-        REM - What happens if the value is a font with spaces in the same, such as Ubuntu Mono?  
+        REM Sanitize the property by ensuring that it starts with '--' and changing all spaces to dashes
+        if !(property!.startsWith("--")) then property! = "--" + property!
+        property! = property!.replaceAll(" ", "-").trim()
+        value! = value!.trim()
+        if (value!.contains(" ")) then value! = "'" + value! + "'"
+
+        REM Build the CSS string for the root element and append it to the DOM's <body> element
+        css! = ":root { " + property! + ": " + value! + "; }"
+        #webManager!.injectStyle(css!, 0, "app_custom_css_property")
     methodend
 
+    REM /**
+    REM  * Injects the CSS file given from the fileName! into the webManager.
+    REM  * Depends on the definitions of #appPath! and #webManager!
+    REM  * Sets the name of the CSS file to taskapp_filename_css.
+    REM  *
+    REM  * @param BBjString fileName!  The name of the CSS file
+    REM  */
+    method public void injectCSSFile(BBjString fileName!)
+        chan = unt
+        open(chan,isz=-1) #appPath!+fileName!
+        read record(chan,siz=1000000) css$
+        close(chan)
+
+        #webManager!.injectStyle(css$, 0, "name=taskapp_"+fileName!.toLowerCase().replace(".","_"))
+    methodend
 
     REM /**
     REM  * Returns the collection of Task objects in a JsonArray.  This is used to

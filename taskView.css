@@ -1,0 +1,142 @@
+/* Default text settings for static text on tasks */
+.task dwc-static-text {
+    font-size: 1.1em;
+    white-space: nowrap;
+	text-overflow: ellipsis;
+	max-width: 99%;
+    transition: letter-spacing 100ms ease;
+	font-family: var(--app-font-family-task);
+    font-weight: var(--app-font-weight-task);
+    letter-spacing: var(--app-font-spacing-task);
+    letter-spacing: var(--app-font-spacing-task);
+}
+
+/*  Task 'complete', 'due today', and 'past due' badges              */
+/* ================================================ */
+.task .dueToday, .task .pastDue {
+	color: var(--dwc-color-danger);
+	white-space: nowrap;
+	font-weight: 600;
+	opacity: 0.75;
+}
+
+.task .complete {
+	color: var(--app-color-primary);
+	text-decoration: none;
+}
+
+.task:hover dwc-checkbox {
+    animation: pulse 500ms ease-in-out 1 forwards;
+}
+
+.task .textDescription {
+	color: hsla(var(--app-color-h), 15%, 50%);
+}
+
+/* Task items that are complete */
+.task.complete .textTitle {
+    filter: opacity(0.65);
+	text-decoration: line-through;
+}
+
+.task.complete .textDescription {
+	filter: opacity(0.65);
+	text-decoration: line-through;
+}
+
+/* Checkboxes for Task items that are incomplete */
+dwc-checkbox:not([checked])::part(input-wrapper) {
+    border-color: var(--dwc-color-gray-50);
+    background-color: var(--dwc-color-white);
+}
+
+/* Checkboxes for Task items that are complete */
+dwc-checkbox[checked]::part(input-wrapper) {
+	border-color: var(--app-color-primary);
+	background-color: hsla(var(--app-color-h), 15%, 40%);
+    color: var(--dwc-color-black);
+}
+
+/* Checkbox styling  */
+dwc-checkbox::part(input-wrapper) {
+	border-radius: 100%;
+	color: var(--dwc-color-black);
+	transform: scale3d(1.25, 1.25, 1);
+    justify-content: center;
+    align-self: center;
+}
+
+/* Fades check mark on mouse enter/exit on a checkbox */
+dwc-checkbox::part(checked-icon) {
+    transform: scale(1) translate3d(0px, 0px, 0px);
+    transition: all 250ms ease-in-out;
+    opacity: 0;
+}
+
+dwc-checkbox[checked]::part(checked-icon) {
+    opacity: 1;
+}
+
+dwc-checkbox[checked]:hover::part(checked-icon) {
+    /* Checked, hovering over the checkbox */
+    opacity: 0.75;
+}
+dwc-checkbox:not([checked]):hover::part(checked-icon) {
+    /* Unchecked, hovering over the checkbox */
+    opacity: 0.25;
+}
+
+/*  Priority flags and popup menus                  */
+/* ================================================ */
+.priority-6 {
+    color: var(--dwc-color-black);
+	opacity: .1;
+}
+
+.priority-5 {
+    color: #2c80d4;
+	opacity: 1;
+}
+
+.priority-4 {
+	color: #47942f;
+	opacity: 1;
+}
+
+.priority-3 {
+	color: #f5e102;
+	opacity: 1;
+}
+
+.priority-2 {
+	color: #f58402;
+	opacity: 1;
+}
+
+.priority-1 {
+	color: #f50202;
+	opacity: 1;
+}
+
+.priority-transparent {
+	color: transparent;
+}
+
+/* Indicator flag styling on task-list-view */
+.task .priorityFlag {
+	font-size: 1em;
+	background-color: transparent;
+}
+
+.priority-flag::part(control):hover {
+	/* Prevent the flags turning black/white when hovering */
+	color: inherit;
+}
+
+dwc-panel.showCompletedTasks .task:not(.complete) {
+	display: none;
+}
+
+dwc-panel:not(.showCompletedTasks) .complete {
+	display: none;
+}

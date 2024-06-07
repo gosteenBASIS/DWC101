@@ -147,6 +147,29 @@ class public Utils
     methodend
 
 
+    REM /**
+    REM  * Utility method that sets a CSS custom property given the property and value.
+    REM  * It ensures that the CSS property is properly formatted, then builds a CSS
+    REM  * string from the information and adds it to the DOM, thus overriding any
+    REM  * previous setting.
+    REM  *
+    REM  * @param BBjString property!   A BBjString of the property name that will be set to the given value
+    REM  * @param BBjString value!      A BBjString of the value that propety will be set to
+    REM  */
+    method public static void setCssProperty(BBjString property!, BBjString value!)
+        REM Sanitize the property by ensuring that it starts with '--' and changing all spaces to dashes
+        if !(property!.startsWith("--")) then property! = "--" + property!
+        property! = property!.replaceAll(" ", "-").trim()
+        value! = value!.trim()
+
+        REM If the value contains spaces, such as a font-family listing, then it encloses the string in single quotes
+        if (value!.contains(" ")) then value! = "'" + value! + "'"
+
+        REM Build the CSS string for the root element and append it to the DOM's <body> element
+        css! = ":root { " + property! + ": " + value! + "; }"
+        BBjAPI().getWebManager().injectStyle(css!, 0, "app_custom_css_property")
+    methodend
+
     REM ================================================================================================
     REM Convert a string to title case
     REM ================================================================================================

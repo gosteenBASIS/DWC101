@@ -1,0 +1,148 @@
+/* The CSS file that accompanies the TaskApp DWC application - Card View Layout */
+
+/* The parent window for the tasks in the cardview */
+.cardView {
+  	display: flex;
+  	padding-top: 30px;
+  	flex-direction: row;
+  	flex-wrap: wrap;
+	justify-content: space-evenly;
+  	gap: 1em;
+  	overflow: scroll;
+  	padding-bottom: 130px;
+}
+
+/* the windows for the tasks in the cardview */
+.cardView dwc-panel {
+	flex: 1 1 22em;
+	max-width: 40em;
+	height: auto;
+	border: var(--dwc-color-gray-90);
+	border-radius: 2em;
+	box-shadow: rgba(149, 157, 165, 0.2) 0 .5em 2em;
+	display: grid;
+	grid-template-columns: 1fr 5ch;
+	grid-template-rows: min-content min-content auto 3em;
+	padding: 1.4em;
+	transition: all 250ms ease;
+}
+
+.cardView dwc-panel:hover {
+	transform: scale(0.95);
+	box-shadow: 0 0 4px rgba(149, 157, 165, 0.2);
+	cursor: pointer;
+}
+
+/* Title styling on task-Card-view */
+.cardView .textTitle {
+	grid-column: 1 / 2;
+	grid-row: 2;
+	margin-top: 1.5em;
+	justify-self: left;
+	align-items: start;
+	font-size: var(--dwc-font-size-xl);
+	text-wrap: wrap;
+	height: min-content;
+}
+
+/* Description styling on task-list-view */
+.cardView .textDescription {
+	grid-row: 3;
+ 	grid-column: 1 / 3;
+   	height: auto;
+    text-overflow: ellipsis;
+	text-wrap: wrap;
+}
+
+/* Indicator flag styling on task-list-view */
+.cardView .priorityFlag {
+	justify-self: right;
+	grid-column: 2;
+	grid-row: 1;
+}
+
+.cardView dwc-checkbox {
+	justify-self: right;
+	grid-row: 4;
+	margin: auto auto;
+	width: 100%;
+}
+
+.cardView dwc-checkbox::part(label) {
+	padding: var(--dwc-space);
+	border-radius: 10px;
+	border: 1px solid;
+	font-size: var(--dwc-font-size-l);
+	color: var(--app-color-primary);
+	box-sizing: border-box;
+	width: 100%;
+	margin: auto;
+	align-self: center;
+	text-align: center;
+	display: block;
+}
+
+/* Hide the checkbox part of the checkbox */
+.cardView dwc-checkbox::part(input-wrapper) {
+	display: none;
+}
+
+/* Trash can icon styling on Completed-task-list-view */
+.cardView .btnDelete {
+	justify-self: right;
+	grid-row: 4;
+	margin-right: -10px;
+	--dwc-button-background: none;
+	--dwc-button-border-color: transparent;
+	--dwc-button-hover-background: none;
+	--dwc-button-selected-background: none;
+}
+
+.cardView .btnDelete::part(control), .card-btn-delete-task::part(control):before {
+	font-size: 15px;
+	justify-self: right;
+ 	opacity: .6;
+ 	width: fit-content;
+}
+
+.cardView .btnDelete::part(control):hover {
+	opacity: 1;
+}
+
+
+.cardView .dueDate {
+	background-color: lightgray;
+	width: fit-content;
+	padding: 0.25em 0.5em;
+	border-radius: .4em;
+}
+
+.cardView .dueNotice {
+	justify-self: left;
+	white-space: nowrap;
+	grid-row: 1 / 1;
+	grid-column: 1 / 3;
+	padding-top: 5px;
+	display: flex;
+}
+
+/*  Task due today and past due badges              */
+/* ================================================ */
+.cardView .dueToday {
+	justify-self: left;
+	white-space: nowrap;
+	font-weight: 600;
+}
+
+/* Styling for completed state in light mode */
+.cardView dwc-panel.complete {
+	background-color: hsla(var(--app-color-h), 15%, 75%);
+}
+
+[data-app-theme="dark"] {
+	.cardView dwc-panel.complete {
+		background-color: hsla(var(--app-color-h), 15%, 25%);
+		border: transparent;
+	}
+}
+
